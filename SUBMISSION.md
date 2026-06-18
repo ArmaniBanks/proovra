@@ -100,7 +100,7 @@ The x402 protected endpoint rejects unpaid access with `402`, rejects fake payme
 ## Submission Status
 
 - GitHub-ready folder: `proovra`
-- Public GitHub URL: pending upload
+- Public GitHub URL: https://github.com/ArmaniBanks/proovra
 - Live Product URL: pending deployment
 - Demo Video URL: pending recording
 - Arc Testnet settlement evidence: complete
