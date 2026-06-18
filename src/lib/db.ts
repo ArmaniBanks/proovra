@@ -110,6 +110,66 @@ function getDatabasePath() {
   return process.env.PROOVRA_DB_PATH || join(process.cwd(), "data", "proovra-db.json");
 }
 
+function getDatabaseKey() {
+  return process.env.PROOVRA_KV_DB_KEY || "proovra:database:v3";
+}
+
+function hasVercelKv() {
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
+
+function isProductionRuntime() {
+  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+}
+
+async function kvCommand<T>(command: unknown[]): Promise<T | null> {
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+
+  if (!url || !token) {
+    throw new Error(
+      "Vercel KV is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN for production persistence."
+    );
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(command),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Vercel KV command failed with HTTP ${response.status}`);
+  }
+
+  const payload = (await response.json()) as { result?: T; error?: string };
+  if (payload.error) {
+    throw new Error(`Vercel KV command failed: ${payload.error}`);
+  }
+
+  return payload.result ?? null;
+}
+
+async function loadKvDatabase(): Promise<PersistedDatabase> {
+  const result = await kvCommand<string | PersistedDatabase>([
+    "GET",
+    getDatabaseKey(),
+  ]);
+
+  if (!result) return createEmptyDatabase();
+  const parsed =
+    typeof result === "string" ? (JSON.parse(result) as PersistedDatabase) : result;
+  return reviveDatabase(parsed);
+}
+
+async function persistKvDatabase(data: PersistedDatabase) {
+  await kvCommand<string>(["SET", getDatabaseKey(), JSON.stringify(data)]);
+}
+
 function reviveAgent(agent: Agent): Agent {
   return {
     ...agent,
@@ -248,21 +308,58 @@ declare global {
 }
 
 export class ProoVraDatabase {
-  agents: Map<string, Agent>;
-  tasks: Map<string, Task>;
-  settlements: Map<string, Settlement>;
-  receipts: Map<string, Receipt>;
-  wallets: Map<string, AgentWalletRecord>;
-  settlementTransactions: Map<string, SettlementTransactionRecord>;
-  x402Payments: Map<string, X402PaymentRecord>;
-  activities: ActivityEvent[];
-  stats: DashboardStats;
+  agents!: Map<string, Agent>;
+  tasks!: Map<string, Task>;
+  settlements!: Map<string, Settlement>;
+  receipts!: Map<string, Receipt>;
+  wallets!: Map<string, AgentWalletRecord>;
+  settlementTransactions!: Map<string, SettlementTransactionRecord>;
+  x402Payments!: Map<string, X402PaymentRecord>;
+  activities!: ActivityEvent[];
+  stats!: DashboardStats;
 
   private readonly databasePath: string;
+  private readonly useVercelKv: boolean;
+  private readyPromise: Promise<void>;
+  private persistPromise: Promise<void> = Promise.resolve();
 
   constructor(databasePath = getDatabasePath()) {
     this.databasePath = databasePath;
-    const data = this.loadDatabase();
+    this.useVercelKv = hasVercelKv();
+    const data = this.useVercelKv ? createEmptyDatabase() : this.loadFileDatabase();
+    this.replaceDatabase(data);
+
+    this.readyPromise = this.useVercelKv
+      ? this.loadRemoteDatabase()
+      : Promise.resolve();
+  }
+
+  async ready() {
+    await this.readyPromise;
+  }
+
+  async flush() {
+    await this.persistPromise;
+  }
+
+  addActivity(event: Omit<ActivityEvent, "id" | "timestamp">) {
+    const newEvent: ActivityEvent = {
+      ...event,
+      id: `act-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date(),
+    };
+    this.activities.unshift(newEvent);
+    if (this.activities.length > 50) this.activities.pop();
+    this.persist();
+    return newEvent;
+  }
+
+  updateStats(delta: Partial<DashboardStats>) {
+    this.stats = { ...this.stats, ...delta };
+    this.persist();
+  }
+
+  private replaceDatabase(data: PersistedDatabase) {
     const persist = () => this.persist();
 
     this.agents = new PersistentMap(data.agents.map((agent) => [agent.id, agent]), persist);
@@ -296,24 +393,22 @@ export class ProoVraDatabase {
     this.stats = { ...data.stats };
   }
 
-  addActivity(event: Omit<ActivityEvent, "id" | "timestamp">) {
-    const newEvent: ActivityEvent = {
-      ...event,
-      id: `act-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: new Date(),
-    };
-    this.activities.unshift(newEvent);
-    if (this.activities.length > 50) this.activities.pop();
-    this.persist();
-    return newEvent;
+  private async loadRemoteDatabase() {
+    try {
+      this.replaceDatabase(await loadKvDatabase());
+    } catch (error) {
+      if (isProductionRuntime()) {
+        throw error;
+      }
+      console.warn(
+        "Failed to load Vercel KV database; using local file database.",
+        error
+      );
+      this.replaceDatabase(this.loadFileDatabase());
+    }
   }
 
-  updateStats(delta: Partial<DashboardStats>) {
-    this.stats = { ...this.stats, ...delta };
-    this.persist();
-  }
-
-  private loadDatabase(): PersistedDatabase {
+  private loadFileDatabase(): PersistedDatabase {
     if (!existsSync(this.databasePath)) {
       return createEmptyDatabase();
     }
@@ -328,8 +423,8 @@ export class ProoVraDatabase {
     }
   }
 
-  private persist() {
-    const data: PersistedDatabase = {
+  private snapshot(): PersistedDatabase {
+    return {
       version: 3,
       agents: Array.from(this.agents.values()),
       tasks: Array.from(this.tasks.values()),
@@ -341,6 +436,21 @@ export class ProoVraDatabase {
       activities: this.activities,
       stats: this.stats,
     };
+  }
+
+  private persist() {
+    const data = this.snapshot();
+
+    if (this.useVercelKv) {
+      this.persistPromise = this.persistPromise.then(() => persistKvDatabase(data));
+      return;
+    }
+
+    if (isProductionRuntime()) {
+      throw new Error(
+        "Production persistence is not configured. Set KV_REST_API_URL and KV_REST_API_TOKEN."
+      );
+    }
 
     mkdirSync(dirname(this.databasePath), { recursive: true });
     writeFileSync(this.databasePath, JSON.stringify(data, null, 2));
