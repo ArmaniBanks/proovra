@@ -4,6 +4,7 @@ import {
   BatchFacilitatorClient,
   GATEWAY_AUTH_VALIDITY_WINDOW_SECONDS,
 } from "@circle-fin/x402-batching/server";
+import { db } from "@/lib/db";
 import { X402PaymentService } from "@/services/x402-payment.service";
 
 export const runtime = "nodejs";
@@ -229,6 +230,7 @@ function buildProtectedPayload(
 }
 
 export async function GET(req: Request) {
+  await db.ready();
   const requirements = paymentRequirements(req);
   const paymentId = getPaymentId(req);
 
@@ -341,6 +343,7 @@ export async function GET(req: Request) {
           receipt: JSON.stringify(settlement),
         },
       });
+      await db.flush();
       const payload = buildProtectedPayload(req, requirements, record);
       const paymentResponse = Buffer.from(
         JSON.stringify({
