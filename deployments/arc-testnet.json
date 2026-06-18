@@ -1,0 +1,51 @@
+{
+    "network":  "arc-testnet",
+    "chainId":  5042002,
+    "rpcUrl":  "https://rpc.testnet.arc.network",
+    "explorer":  "https://testnet.arcscan.app",
+    "contracts":  {
+                      "SettlementEscrow":  {
+                                               "address":  "0x38D7C4cC9C108D127923651ced41bdb123Dbc611",
+                                               "deploymentTxHash":  "0x6737b34247d371227a40dde1de0c468f10db2c65d724172f23f5369f05d8a11b",
+                                               "deployer":  "0xabec63339443ce52be54fb12833c41b311ea168c",
+                                               "verified":  false,
+                                               "deployedAt":  "2026-06-16T06:57:37.1954647Z",
+                                               "compilerVersion":  "0.8.24",
+                                               "source":  "contracts/SettlementEscrow.sol",
+                                               "blockNumber":  47286194,
+                                               "gasUsed":  598075,
+                                               "status":  "deployed",
+                                               "transactionUrl":  "https://testnet.arcscan.app/tx/0x6737b34247d371227a40dde1de0c468f10db2c65d724172f23f5369f05d8a11b",
+                                               "contractUrl":  "https://testnet.arcscan.app/address/0x38D7C4cC9C108D127923651ced41bdb123Dbc611",
+                                               "verificationStatus":  "not-supported-or-not-exposed-by-arcscan",
+                                               "verificationCheckedAt":  "2026-06-16T07:01:22.8369468Z"
+                                           }
+                  },
+    "firstSettlement":  {
+                            "escrowId":  "1",
+                            "approvalTxHash":  "0xb5cd7dcd9b1c168e7c1ffe83acc9e219b7572e5fb57a5feddfad8925ba747c15",
+                            "createTxHash":  "0xcd623a2d00d197cc812b48ca3ad786cabcd579ef7450fea934e934fcf8ef5743",
+                            "releaseTxHash":  "0xa8a273a235947282508ea62e9d088533b146b173d4b4e656684d6b5079c004d4",
+                            "refundTxHash":  "",
+                            "requester":  "0xabeC63339443cE52Be54FB12833C41B311Ea168c",
+                            "provider":  "0xabeC63339443cE52Be54FB12833C41B311Ea168c",
+                            "token":  "0x3600000000000000000000000000000000000000",
+                            "amountBaseUnits":  "1",
+                            "amountDisplay":  "0.000001 USDC",
+                            "proofHash":  "0x66b46890dd125a83b960e4a19245b124b1295c3c66831a088a90cd4fde308bde",
+                            "status":  "Released",
+                            "approvalBlockNumber":  47291038,
+                            "createBlockNumber":  47291383,
+                            "releaseBlockNumber":  47291670,
+                            "approvalGasUsed":  55414,
+                            "createGasUsed":  193855,
+                            "releaseGasUsed":  68686,
+                            "confirmationCount":  132,
+                            "receiptVerified":  true,
+                            "result":  "Proof successfully triggered payment release.",
+                            "approvalUrl":  "https://testnet.arcscan.app/tx/0xb5cd7dcd9b1c168e7c1ffe83acc9e219b7572e5fb57a5feddfad8925ba747c15",
+                            "createUrl":  "https://testnet.arcscan.app/tx/0xcd623a2d00d197cc812b48ca3ad786cabcd579ef7450fea934e934fcf8ef5743",
+                            "releaseUrl":  "https://testnet.arcscan.app/tx/0xa8a273a235947282508ea62e9d088533b146b173d4b4e656684d6b5079c004d4",
+                            "verifiedAt":  "2026-06-16T07:39:00Z"
+                        }
+}
