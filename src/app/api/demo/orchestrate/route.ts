@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { TaskService } from "@/services/task.service";
 import { EscrowService } from "@/services/escrow.service";
 import { VerificationService } from "@/services/verification.service";
@@ -27,6 +28,7 @@ function getWorkflowAgents() {
 }
 
 export async function POST(req: Request) {
+  await db.ready();
   const { step } = await req.json();
 
   try {
@@ -63,6 +65,7 @@ export async function POST(req: Request) {
         task.pricingModel
       );
       demoSettlementId = settlement.id;
+      await db.flush();
       
       return NextResponse.json({ success: true, task, settlement });
     }
@@ -73,6 +76,7 @@ export async function POST(req: Request) {
       const proofHash = VerificationService.submitProof(demoSettlementId, {
         proofText: "Demo workflow proof: provider returned valid research API results.",
       });
+      await db.flush();
       return NextResponse.json({ success: true, proofHash });
     }
 
@@ -80,6 +84,7 @@ export async function POST(req: Request) {
       // Step 3: ProoVra verifies delivery
       if (!demoSettlementId) throw new Error("No active demo settlement");
       const passed = await VerificationService.verifyDelivery(demoSettlementId);
+      await db.flush();
       return NextResponse.json({ success: true, passed });
     }
 
@@ -87,6 +92,7 @@ export async function POST(req: Request) {
       // Step 4: Funds release + receipt generated
       if (!demoSettlementId) throw new Error("No active demo settlement");
       const settlement = await SettlementService.releaseFunds(demoSettlementId);
+      await db.flush();
       return NextResponse.json({ success: true, settlement });
     }
 
