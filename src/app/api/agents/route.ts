@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { AgentService } from "@/services/agent.service";
 import { ReadModelService } from "@/services/read-model.service";
 import type { AgentRole, AgentType } from "@/lib/mock-data";
@@ -16,6 +17,7 @@ const agentRoles: AgentRole[] = [
 const agentTypes: AgentType[] = ["provider", "requester", "both"];
 
 export async function GET() {
+  await db.ready();
   return NextResponse.json({
     agents: AgentService.getAllAgents(),
     dataSource: ReadModelService.getDataSourceSummary(),
@@ -23,6 +25,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  await db.ready();
   const body = await req.json();
 
   if (
@@ -52,6 +55,7 @@ export async function POST(req: Request) {
       walletAddress: body.walletAddress,
       avatar: typeof body.avatar === "string" ? body.avatar : undefined,
     });
+    await db.flush();
 
     return NextResponse.json({ agent }, { status: 201 });
   } catch (error) {
