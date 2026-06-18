@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { WalletService } from "@/services/wallet.service";
 
 type CreateWalletBody = {
@@ -6,12 +7,14 @@ type CreateWalletBody = {
 };
 
 export async function GET() {
+  await db.ready();
   return NextResponse.json({
     wallets: WalletService.getAllWallets(),
   });
 }
 
 export async function POST(req: Request) {
+  await db.ready();
   try {
     const body = (await req.json()) as CreateWalletBody;
 
@@ -20,6 +23,7 @@ export async function POST(req: Request) {
     }
 
     const wallet = await WalletService.createAgentWallet(body.agentId);
+    await db.flush();
     return NextResponse.json({ wallet });
   } catch (error: unknown) {
     return NextResponse.json(
