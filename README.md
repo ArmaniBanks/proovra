@@ -101,7 +101,7 @@ The Circle CLI supports agent wallets, x402-compatible payments, and USDC workfl
 ## Repository Status
 
 - GitHub-ready folder: `proovra`
-- Public GitHub URL: https://github.com/ArmaniBanks/proovra
+- Public GitHub URL: pending upload
 - Live Product URL: pending deployment
 - Demo Video URL: pending recording
 - Arc Testnet verification: complete
@@ -132,6 +132,22 @@ npm run lint
 npm run build
 npm run lepton:tooling
 ```
+
+## Vercel Persistence
+
+Production deployments must use durable storage because Vercel serverless filesystems are read-only at runtime.
+
+Required Vercel environment variables:
+
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+- `BLOB_READ_WRITE_TOKEN`
+
+Optional:
+
+- `PROOVRA_KV_DB_KEY` to override the Vercel KV key used for the app database. Default: `proovra:database:v3`.
+
+Local development keeps using `data/proovra-db.json` and `public/uploads/proofs` when those production storage variables are not set.
 
 ## App Routes
 
