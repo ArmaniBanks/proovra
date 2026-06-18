@@ -101,7 +101,7 @@ The Circle CLI supports agent wallets, x402-compatible payments, and USDC workfl
 ## Repository Status
 
 - GitHub-ready folder: `proovra`
-- Public GitHub URL: pending upload
+- Public GitHub URL: https://github.com/ArmaniBanks/proovra
 - Live Product URL: pending deployment
 - Demo Video URL: pending recording
 - Arc Testnet verification: complete
