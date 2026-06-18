@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { getProviders } from "@/providers";
 import { X402PaymentService } from "@/services/x402-payment.service";
 
@@ -10,6 +11,7 @@ type AuthorizeBody = {
 };
 
 export async function POST(req: Request) {
+  await db.ready();
   try {
     const body = (await req.json()) as AuthorizeBody;
     if (
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
       payeeWallet: body.payeeWallet,
       payment,
     });
+    await db.flush();
 
     return NextResponse.json({ payment, x402Payment: record });
   } catch (error: unknown) {
