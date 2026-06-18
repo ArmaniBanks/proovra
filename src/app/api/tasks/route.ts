@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { TaskService } from "@/services/task.service";
 import { ReadModelService } from "@/services/read-model.service";
 import type { PricingModel, TaskStatus } from "@/lib/mock-data";
@@ -21,6 +22,7 @@ const taskStatuses: TaskStatus[] = [
 ];
 
 export async function GET() {
+  await db.ready();
   return NextResponse.json({
     tasks: TaskService.getAllTasks(),
     agentsById: ReadModelService.getAgentMap(),
@@ -29,6 +31,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  await db.ready();
   const body = await req.json();
 
   if (
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
       verificationCriteria: body.verificationCriteria,
       deadline,
     });
+    await db.flush();
     return NextResponse.json({ task }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
@@ -75,6 +79,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  await db.ready();
   const body = await req.json();
 
   if (typeof body.taskId !== "string") {
@@ -91,6 +96,7 @@ export async function PATCH(req: Request) {
 
     try {
       const task = TaskService.acceptTask(body.taskId, body.walletAddress);
+      await db.flush();
       return NextResponse.json({ task });
     } catch (error) {
       return NextResponse.json(
@@ -110,6 +116,7 @@ export async function PATCH(req: Request) {
 
   try {
     const task = TaskService.updateTaskStatus(body.taskId, body.status as TaskStatus);
+    await db.flush();
     return NextResponse.json({ task });
   } catch (error) {
     return NextResponse.json(
