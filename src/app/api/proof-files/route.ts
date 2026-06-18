@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import type { ProofFile } from "@/lib/mock-data";
+
+export const runtime = "nodejs";
 
 const acceptedTypes = new Set([
   "image/png",
@@ -22,6 +25,14 @@ const acceptedTypes = new Set([
 
 function safeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+}
+
+function shouldUseVercelBlob() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+function isProductionRuntime() {
+  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 }
 
 export async function POST(req: Request) {
@@ -48,18 +59,43 @@ export async function POST(req: Request) {
   const fileHash = `0x${createHash("sha256").update(bytes).digest("hex")}`;
   const uploadedAt = new Date();
   const storedName = `${uploadedAt.getTime()}-${fileHash.slice(2, 10)}-${safeFileName(file.name)}`;
-  const relativePath = `/uploads/proofs/${storedName}`;
-  const filePath = join(process.cwd(), "public", "uploads", "proofs", storedName);
 
-  await mkdir(join(process.cwd(), "public", "uploads", "proofs"), { recursive: true });
-  await writeFile(filePath, bytes);
+  let fileUrl: string;
+  let filePath: string;
+
+  if (shouldUseVercelBlob()) {
+    const blobPath = `proofs/${storedName}`;
+    const blob = await put(blobPath, bytes, {
+      access: "public",
+      contentType: file.type,
+    });
+    fileUrl = blob.url;
+    filePath = blob.pathname;
+  } else {
+    if (isProductionRuntime()) {
+      return NextResponse.json(
+        {
+          error:
+            "Production proof upload storage is not configured. Set BLOB_READ_WRITE_TOKEN.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const relativePath = `/uploads/proofs/${storedName}`;
+    const localPath = join(process.cwd(), "public", "uploads", "proofs", storedName);
+    await mkdir(join(process.cwd(), "public", "uploads", "proofs"), { recursive: true });
+    await writeFile(localPath, bytes);
+    fileUrl = relativePath;
+    filePath = localPath;
+  }
 
   const proofFile: ProofFile = {
     fileName: file.name,
     fileType: file.type,
     fileSize: file.size,
     uploadedAt,
-    fileUrl: relativePath,
+    fileUrl,
     filePath,
     fileHash,
   };
