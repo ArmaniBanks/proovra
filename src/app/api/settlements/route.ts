@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { EscrowService } from "@/services/escrow.service";
 import { ReadModelService } from "@/services/read-model.service";
 import { SettlementService } from "@/services/settlement.service";
@@ -15,6 +16,7 @@ const pricingModels: PricingModel[] = [
 ];
 
 export async function GET() {
+  await db.ready();
   const settlements = ReadModelService.getSettlements();
   const tasksById = ReadModelService.getTaskMap();
   const agentsById = ReadModelService.getAgentMap();
@@ -41,6 +43,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  await db.ready();
   const body = await req.json();
 
   if (
@@ -82,6 +85,7 @@ export async function POST(req: Request) {
       contractAddress: body.contractAddress,
       explorerUrl: body.explorerUrl,
     });
+    await db.flush();
     return NextResponse.json({ settlement }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
@@ -92,6 +96,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  await db.ready();
   const body = await req.json();
 
   if (typeof body.settlementId !== "string" || typeof body.action !== "string") {
@@ -124,6 +129,7 @@ export async function PATCH(req: Request) {
       const settlement = ReadModelService.getSettlements().find(
         (candidate) => candidate.id === body.settlementId
       );
+      await db.flush();
       return NextResponse.json({ settlement });
     }
 
@@ -136,6 +142,7 @@ export async function PATCH(req: Request) {
       const settlement = ReadModelService.getSettlements().find(
         (candidate) => candidate.id === body.settlementId
       );
+      await db.flush();
       return NextResponse.json({ settlement });
     }
 
@@ -160,6 +167,7 @@ export async function PATCH(req: Request) {
         contractAddress: body.contractAddress,
         explorerUrl: body.explorerUrl,
       });
+      await db.flush();
       return NextResponse.json({ settlement });
     }
 
