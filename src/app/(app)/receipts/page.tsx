@@ -33,6 +33,10 @@ export default function ReceiptsPage() {
 
     window.requestAnimationFrame(() => {
       setExpandedId(receiptId);
+      document.getElementById(`receipt-${receiptId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   }, [receipts, searchParams]);
 
