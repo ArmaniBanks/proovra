@@ -32,59 +32,71 @@ function isProductionRuntime() {
 }
 
 export async function POST(req: Request) {
-  const formData = await req.formData();
-  const file = formData.get("file");
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file");
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Proof file is required" }, { status: 400 });
-  }
-  if (!acceptedTypes.has(file.type)) {
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Proof file is required" }, { status: 400 });
+    }
+    if (!acceptedTypes.has(file.type)) {
+      return NextResponse.json(
+        { error: "Unsupported file type. Upload an image, PDF, or common document." },
+        { status: 400 }
+      );
+    }
+    if (file.size <= 0) {
+      return NextResponse.json({ error: "Proof file is empty" }, { status: 400 });
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "Proof file must be 10MB or smaller" }, { status: 400 });
+    }
+
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const fileHash = `0x${createHash("sha256").update(bytes).digest("hex")}`;
+    const uploadedAt = new Date();
+    const storedName = `${uploadedAt.getTime()}-${fileHash.slice(2, 10)}-${safeFileName(file.name)}`;
+
+    let fileUrl: string;
+    let filePath: string;
+
+    if (isProductionRuntime() || process.env.BLOB_READ_WRITE_TOKEN) {
+      const blobPath = `proofs/${storedName}`;
+      const blob = await put(blobPath, bytes, {
+        access: "public",
+        contentType: file.type,
+      });
+      fileUrl = blob.url;
+      filePath = blob.pathname;
+    } else {
+      const relativePath = `/uploads/proofs/${storedName}`;
+      const localPath = join(process.cwd(), "public", "uploads", "proofs", storedName);
+      await mkdir(join(process.cwd(), "public", "uploads", "proofs"), { recursive: true });
+      await writeFile(localPath, bytes);
+      fileUrl = relativePath;
+      filePath = localPath;
+    }
+
+    const proofFile: ProofFile = {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      uploadedAt,
+      fileUrl,
+      filePath,
+      fileHash,
+    };
+
+    return NextResponse.json({ proofFile }, { status: 201 });
+  } catch (error) {
     return NextResponse.json(
-      { error: "Unsupported file type. Upload an image, PDF, or common document." },
-      { status: 400 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Proof file upload failed",
+      },
+      { status: 500 }
     );
   }
-  if (file.size <= 0) {
-    return NextResponse.json({ error: "Proof file is empty" }, { status: 400 });
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    return NextResponse.json({ error: "Proof file must be 10MB or smaller" }, { status: 400 });
-  }
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-  const fileHash = `0x${createHash("sha256").update(bytes).digest("hex")}`;
-  const uploadedAt = new Date();
-  const storedName = `${uploadedAt.getTime()}-${fileHash.slice(2, 10)}-${safeFileName(file.name)}`;
-
-  let fileUrl: string;
-  let filePath: string;
-
-  if (isProductionRuntime() || process.env.BLOB_READ_WRITE_TOKEN) {
-    const blobPath = `proofs/${storedName}`;
-    const blob = await put(blobPath, bytes, {
-      access: "public",
-      contentType: file.type,
-    });
-    fileUrl = blob.url;
-    filePath = blob.pathname;
-  } else {
-    const relativePath = `/uploads/proofs/${storedName}`;
-    const localPath = join(process.cwd(), "public", "uploads", "proofs", storedName);
-    await mkdir(join(process.cwd(), "public", "uploads", "proofs"), { recursive: true });
-    await writeFile(localPath, bytes);
-    fileUrl = relativePath;
-    filePath = localPath;
-  }
-
-  const proofFile: ProofFile = {
-    fileName: file.name,
-    fileType: file.type,
-    fileSize: file.size,
-    uploadedAt,
-    fileUrl,
-    filePath,
-    fileHash,
-  };
-
-  return NextResponse.json({ proofFile }, { status: 201 });
 }
