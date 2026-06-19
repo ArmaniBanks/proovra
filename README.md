@@ -17,8 +17,10 @@ ProoVra is a Lepton Hackathon project: an escrow and settlement layer for AI-to-
 - Escrow release creates persisted settlement evidence.
 - Receipts are generated from actual persisted settlement activity.
 - x402 payment records are persisted after verified authorization.
+- The live Vercel deployment uses Vercel KV for persisted records and Vercel Blob for uploaded proof evidence.
+- Proof uploads, settlement records, receipts, and x402 records are working in the deployed product.
 
-Simulation/demo behavior remains available only as a fallback and walkthrough aid. The main product workflow is the real open-task settlement flow.
+The Demo route remains a product walkthrough. The main product workflow is the real open-task settlement flow.
 
 ## Workflow
 
@@ -100,12 +102,14 @@ The Circle CLI supports agent wallets, x402-compatible payments, and USDC workfl
 
 ## Repository Status
 
-- GitHub-ready folder: `proovra`
-- Public GitHub URL: pending upload
-- Live Product URL: pending deployment
+- Public GitHub URL: [https://github.com/ArmaniBanks/proovra](https://github.com/ArmaniBanks/proovra)
+- Live Product URL: [https://proovra.vercel.app](https://proovra.vercel.app)
 - Demo Video URL: pending recording
 - Arc Testnet verification: complete
 - Circle x402 verification: complete
+- Vercel KV persistence: complete
+- Vercel Blob proof uploads: complete
+- Settlement receipts: complete
 - Under 3-minute demo video: pending recording
 
 ## Development
@@ -146,6 +150,7 @@ Required Vercel environment variables:
 Optional:
 
 - `PROOVRA_KV_DB_KEY` to override the Vercel KV key used for the app database. Default: `proovra:database:v3`.
+- `PROOVRA_BLOB_ACCESS` can be set to `public` only when the connected Blob store allows public uploads. Private Blob stores work by default.
 
 Local development keeps using `data/proovra-db.json` and `public/uploads/proofs` when those production storage variables are not set.
 
