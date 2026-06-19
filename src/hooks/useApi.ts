@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useApi<T>(endpoint: string) {
+type UseApiOptions<T> = {
+  shouldKeepPrevious?: (previous: T, next: T) => boolean;
+};
+
+export function useApi<T>(endpoint: string, options: UseApiOptions<T> = {}) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [preservedPrevious, setPreservedPrevious] = useState(false);
   const hasDataRef = useRef(false);
+  const shouldKeepPrevious = options.shouldKeepPrevious;
 
   const fetchApi = useCallback(async (isBackgroundPoll = false) => {
     try {
@@ -16,7 +22,14 @@ export function useApi<T>(endpoint: string) {
       const res = await fetch(endpoint);
       if (!res.ok) throw new Error(`API failed: ${res.status}`);
       const json = (await res.json()) as T;
-      setData(json);
+      setData((previous) => {
+        if (previous && shouldKeepPrevious?.(previous, json)) {
+          setPreservedPrevious(true);
+          return previous;
+        }
+        setPreservedPrevious(false);
+        return json;
+      });
       hasDataRef.current = true;
       setError(null);
     } catch (e: unknown) {
@@ -25,7 +38,7 @@ export function useApi<T>(endpoint: string) {
     } finally {
       setLoading(false);
     }
-  }, [endpoint]);
+  }, [endpoint, shouldKeepPrevious]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -37,5 +50,5 @@ export function useApi<T>(endpoint: string) {
     return () => clearInterval(interval);
   }, [fetchApi]);
 
-  return { data, loading, error, mutate: fetchApi };
+  return { data, loading, error, mutate: fetchApi, preservedPrevious };
 }
