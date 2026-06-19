@@ -46,6 +46,10 @@ type SettlementResponse = {
   };
 };
 
+function isValidProofHash(value?: string) {
+  return Boolean(value && /^0x[a-fA-F0-9]{64}$/.test(value.trim()));
+}
+
 export default function SettlementPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -321,10 +325,11 @@ export default function SettlementPage() {
       }
 
       const proofInput = proofInputs[settlementId];
+      const submittedProofHash = proofInput?.proofHash?.trim();
       const submitProofPayload =
         action === "submit-proof" && settlement
           ? {
-              proofHash: proofInput?.proofHash?.trim() || settlement.proofHash,
+              proofHash: isValidProofHash(submittedProofHash) ? submittedProofHash : undefined,
               proofUrl: proofInput?.proofUrl?.trim() || undefined,
               proofFile: proofInput?.proofFile,
               proofText: proofInput?.proofText?.trim() || undefined,
@@ -548,7 +553,7 @@ export default function SettlementPage() {
           const provider = agentsById[settlement.providerId];
           const isExpanded = expandedId === settlement.id;
           const proofInput = proofInputs[settlement.id] ?? {
-            proofHash: settlement.proofHash,
+            proofHash: "",
             proofUrl: "",
             proofText: "",
             proofFile: settlement.proofFile,
