@@ -14,10 +14,7 @@ type ProofSubmission = {
 };
 
 function normalizeProofHash(input: ProofSubmission) {
-  if (input.proofHash) {
-    if (!/^0x[a-fA-F0-9]{64}$/.test(input.proofHash)) {
-      throw new Error("Proof hash must be a 32-byte hex value.");
-    }
+  if (input.proofHash && /^0x[a-fA-F0-9]{64}$/.test(input.proofHash)) {
     return input.proofHash;
   }
 
@@ -56,19 +53,26 @@ export class VerificationService {
       throw new Error("Submit proof text, a proof URL, or an uploaded proof file.");
     }
 
-    const proofHash = normalizeProofHash(proof);
-    if (settlement.proofHash && settlement.proofHash.toLowerCase() !== proofHash.toLowerCase()) {
+    const submittedProofHash = normalizeProofHash(proof);
+    const hasExplicitProofHash = Boolean(
+      proof.proofHash && /^0x[a-fA-F0-9]{64}$/.test(proof.proofHash)
+    );
+    if (
+      hasExplicitProofHash &&
+      settlement.proofHash &&
+      settlement.proofHash.toLowerCase() !== submittedProofHash.toLowerCase()
+    ) {
       throw new Error("Submitted proof does not match the escrow proof commitment.");
     }
     EscrowService.updateEscrowStatus(settlementId, "submitted", {
-      proofHash,
+      proofHash: settlement.proofHash || submittedProofHash,
       proofUrl: proof.proofUrl,
       proofText: proof.proofText,
       proofFile: proof.proofFile,
       proofSubmittedAt: new Date(),
     });
     TaskService.updateTaskStatus(settlement.taskId, "delivered");
-    return proofHash;
+    return submittedProofHash;
   }
 
   static verifyDelivery(settlementId: string, verifier?: string, approved = false): boolean {
