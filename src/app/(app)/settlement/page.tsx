@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { Agent, ProofFile, Settlement, Task } from "@/lib/mock-data";
 import { formatUSDC, formatTimeAgo, cn } from "@/lib/utils";
+import { getProofFileUrl } from "@/lib/proof-file-url";
 import { areSameWallet } from "@/lib/wallet-validation";
 import Link from "next/link";
 import {
@@ -671,7 +672,7 @@ export default function SettlementPage() {
                         <DetailRow label="Proof File">
                           <div className="space-y-1 rounded border border-zinc-800 bg-zinc-900 p-2 text-xs text-zinc-400">
                             <a
-                              href={settlement.proofFile.fileUrl}
+                              href={getProofFileUrl(settlement.proofFile)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="font-medium text-amber-400 hover:text-amber-300"
@@ -798,7 +799,7 @@ export default function SettlementPage() {
                           <div className="mt-3 rounded-md border border-zinc-800 bg-zinc-900/70 p-2 text-xs text-zinc-400">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <a
-                                href={proofInput.proofFile.fileUrl}
+                                href={getProofFileUrl(proofInput.proofFile)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="font-medium text-amber-400 hover:text-amber-300"
