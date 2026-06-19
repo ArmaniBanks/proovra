@@ -41,6 +41,21 @@ function reputationFromActivity(successRate: number, completedCount: number) {
 }
 
 export class ReadModelService {
+  private static isVisibleAgent(agent: Agent): boolean {
+    const hasStandaloneActivity =
+      agent.completedSettlements > 0 ||
+      agent.totalEarnings > 0 ||
+      agent.successRate > 0 ||
+      agent.reputationScore > 0 ||
+      agent.activeEscrows > 0;
+
+    if (agent.type === "requester") {
+      return hasStandaloneActivity;
+    }
+
+    return true;
+  }
+
   static getAgents(): Agent[] {
     const settlements = Array.from(db.settlements.values());
 
@@ -103,6 +118,7 @@ export class ReadModelService {
     const released = releasedSettlements();
     const completed = completedSettlements();
     const receipts = Array.from(db.receipts.values());
+    const visibleAgents = this.getAgents().filter((agent) => this.isVisibleAgent(agent));
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
@@ -116,7 +132,7 @@ export class ReadModelService {
         .filter((settlement) => !TERMINAL_SETTLEMENTS.has(settlement.escrowStatus))
         .reduce((sum, settlement) => sum + settlement.amount, 0),
       settlementCount: released.length,
-      activeAgents: db.agents.size,
+      activeAgents: visibleAgents.length,
       successRate: successRateFor(completed),
       avgSettlementTime:
         settlementTimes.length > 0
