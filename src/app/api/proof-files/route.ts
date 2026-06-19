@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { head, put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import type { ProofFile } from "@/lib/mock-data";
 
@@ -48,27 +48,41 @@ function getBlobPathname(blobUrl: string) {
   }
 }
 
-async function getAccessibleBlobUrl(blobUrl: string) {
+async function getBlobResponse(blobUrl: string) {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   const pathname = getBlobPathname(blobUrl);
   const candidates = [blobUrl, pathname].filter(Boolean);
 
   for (const candidate of candidates) {
     try {
-      const metadata = await head(candidate, token ? { token } : undefined);
-      const downloadUrl = "downloadUrl" in metadata ? metadata.downloadUrl : undefined;
-      if (typeof downloadUrl === "string" && downloadUrl) {
-        return downloadUrl;
-      }
-      if (metadata.url) {
-        return metadata.url;
+      const result = await get(candidate, {
+        access: "private",
+        useCache: false,
+        ...(token ? { token } : {}),
+      });
+      if (result?.statusCode === 200 && result.stream) {
+        return {
+          stream: result.stream,
+          headers: result.headers,
+          contentType: result.blob.contentType,
+          size: result.blob.size,
+        };
       }
     } catch {
-      // Try the next candidate, then fall back to the original URL below.
+      // Try the next candidate, then fall back to public fetch below.
     }
   }
 
-  return blobUrl;
+  const response = await fetch(blobUrl);
+  if (!response.ok || !response.body) {
+    return null;
+  }
+  return {
+    stream: response.body,
+    headers: response.headers,
+    contentType: response.headers.get("content-type"),
+    size: Number(response.headers.get("content-length") || 0) || null,
+  };
 }
 
 export async function GET(req: Request) {
@@ -81,25 +95,25 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid proof file URL" }, { status: 400 });
     }
 
-    const response = await fetch(await getAccessibleBlobUrl(blobUrl));
-    if (!response.ok || !response.body) {
+    const blob = await getBlobResponse(blobUrl);
+    if (!blob?.stream) {
       return NextResponse.json(
-        { error: `Proof file is not accessible (${response.status})` },
-        { status: response.status }
+        { error: "Proof file is not accessible from the configured Blob store." },
+        { status: 404 }
       );
     }
 
     const responseHeaders = new Headers({
-      "Content-Type": response.headers.get("content-type") || "application/octet-stream",
+      "Content-Type": blob.contentType || "application/octet-stream",
       "Content-Disposition": `inline; filename="${fileName}"`,
       "Cache-Control": "private, max-age=300",
     });
-    const contentLength = response.headers.get("content-length");
+    const contentLength = blob.headers.get("content-length") || (blob.size ? String(blob.size) : "");
     if (contentLength) {
       responseHeaders.set("Content-Length", contentLength);
     }
 
-    return new Response(response.body, {
+    return new Response(blob.stream, {
       status: 200,
       headers: responseHeaders,
     });
