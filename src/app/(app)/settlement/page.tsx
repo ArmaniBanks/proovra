@@ -47,6 +47,23 @@ type SettlementResponse = {
   };
 };
 
+type AcceptedTaskHandoff = {
+  task?: Task;
+  agentsById?: Record<string, Agent>;
+};
+
+function readAcceptedTaskHandoff(): AcceptedTaskHandoff {
+  if (typeof window === "undefined") return {};
+  const raw = window.sessionStorage.getItem("proovra:accepted-task-handoff");
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as AcceptedTaskHandoff;
+  } catch {
+    window.sessionStorage.removeItem("proovra:accepted-task-handoff");
+    return {};
+  }
+}
+
 function isValidProofHash(value?: string) {
   return Boolean(value && /^0x[a-fA-F0-9]{64}$/.test(value.trim()));
 }
@@ -81,7 +98,7 @@ export default function SettlementPage() {
     { shouldKeepPrevious: keepActiveSettlement }
   );
   const walletAddress = useConnectedWallet();
-  const [fundTaskId, setFundTaskId] = useState("");
+  const [fundTaskId, setFundTaskId] = useState(() => readAcceptedTaskHandoff().task?.id ?? "");
   const [fundProofText, setFundProofText] = useState("");
   const [actionId, setActionId] = useState("");
   const [actionError, setActionError] = useState("");
@@ -90,10 +107,54 @@ export default function SettlementPage() {
     Record<string, { proofHash: string; proofUrl: string; proofText: string; proofFile?: ProofFile }>
   >({});
   const [uploadingProofId, setUploadingProofId] = useState("");
-  const settlements = useMemo(() => data?.settlements ?? [], [data?.settlements]);
-  const agentsById = useMemo(() => data?.agentsById ?? {}, [data?.agentsById]);
-  const tasksById = useMemo(() => data?.tasksById ?? {}, [data?.tasksById]);
-  const fundableTasks = useMemo(() => data?.fundableTasks ?? [], [data?.fundableTasks]);
+  const [localSettlementsById, setLocalSettlementsById] = useState<Record<string, Settlement>>({});
+  const [localTasksById, setLocalTasksById] = useState<Record<string, Task>>(() => {
+    const task = readAcceptedTaskHandoff().task;
+    return task ? { [task.id]: task } : {};
+  });
+  const [localAgentsById] = useState<Record<string, Agent>>(
+    () => readAcceptedTaskHandoff().agentsById ?? {}
+  );
+  const settlements = useMemo(() => {
+    const merged = new Map<string, Settlement>();
+    for (const settlement of data?.settlements ?? []) merged.set(settlement.id, settlement);
+    for (const settlement of Object.values(localSettlementsById)) {
+      merged.set(settlement.id, settlement);
+    }
+    return Array.from(merged.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [data?.settlements, localSettlementsById]);
+  const agentsById = useMemo(
+    () => ({ ...(data?.agentsById ?? {}), ...localAgentsById }),
+    [data?.agentsById, localAgentsById]
+  );
+  const tasksById = useMemo(
+    () => ({ ...(data?.tasksById ?? {}), ...localTasksById }),
+    [data?.tasksById, localTasksById]
+  );
+  const fundableTasks = useMemo(() => {
+    const settledTaskIds = new Set(settlements.map((settlement) => settlement.taskId));
+    const merged = new Map<string, Task>();
+    for (const task of data?.fundableTasks ?? []) merged.set(task.id, task);
+    for (const task of Object.values(localTasksById)) {
+      if (
+        !settledTaskIds.has(task.id) &&
+        task.status !== "settled" &&
+        task.status !== "failed" &&
+        task.providerId &&
+        !areSameWallet(
+          agentsById[task.requesterId]?.walletAddress,
+          agentsById[task.providerId]?.walletAddress
+        )
+      ) {
+        merged.set(task.id, task);
+      }
+    }
+    return Array.from(merged.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [agentsById, data?.fundableTasks, localTasksById, settlements]);
   const selectedFundTask = fundableTasks.find((candidate) => candidate.id === fundTaskId);
   const selectedFundRequester = selectedFundTask ? agentsById[selectedFundTask.requesterId] : undefined;
   const connectedCanFundSelectedTask = Boolean(
@@ -263,6 +324,17 @@ export default function SettlementPage() {
       }
 
       const payload = (await response.json()) as { settlement?: Settlement };
+      if (payload.settlement) {
+        setLocalSettlementsById((current) => ({
+          ...current,
+          [payload.settlement!.id]: payload.settlement!,
+        }));
+        setLocalTasksById((current) => ({
+          ...current,
+          [task.id]: { ...task, status: "assigned" },
+        }));
+        window.sessionStorage.removeItem("proovra:accepted-task-handoff");
+      }
 
       setFundTaskId("");
       setFundProofText("");
@@ -369,6 +441,29 @@ export default function SettlementPage() {
       }
 
       const payload = (await response.json()) as { settlement?: Settlement };
+      if (payload.settlement) {
+        setLocalSettlementsById((current) => ({
+          ...current,
+          [payload.settlement!.id]: payload.settlement!,
+        }));
+        const task = tasksById[payload.settlement.taskId];
+        if (task) {
+          setLocalTasksById((current) => ({
+            ...current,
+            [task.id]: {
+              ...task,
+              status:
+                action === "submit-proof"
+                  ? "delivered"
+                  : action === "verify-proof"
+                  ? "verified"
+                  : action === "release-payment"
+                  ? "settled"
+                  : task.status,
+            },
+          }));
+        }
+      }
       if (payload.settlement?.id && action !== "release-payment") {
         setExpandedId(payload.settlement.id);
         setFilter("in-progress");
