@@ -14,6 +14,94 @@ type AgentRegistrationInput = {
 };
 
 export class AgentService {
+  private static hasMeaningfulActivity(agent: Agent): boolean {
+    return (
+      agent.completedSettlements > 0 ||
+      agent.totalEarnings > 0 ||
+      agent.totalSpending > 0 ||
+      agent.successRate > 0 ||
+      agent.reputationScore > 0 ||
+      agent.activeEscrows > 0
+    );
+  }
+
+  private static getLinkedAgentIds(): Set<string> {
+    const linkedAgentIds = new Set<string>();
+
+    for (const task of db.tasks.values()) {
+      linkedAgentIds.add(task.requesterId);
+      if (task.providerId) linkedAgentIds.add(task.providerId);
+    }
+
+    for (const settlement of db.settlements.values()) {
+      linkedAgentIds.add(settlement.requesterId);
+      linkedAgentIds.add(settlement.providerId);
+    }
+
+    for (const receipt of db.receipts.values()) {
+      linkedAgentIds.add(receipt.requesterId);
+      linkedAgentIds.add(receipt.providerId);
+    }
+
+    for (const wallet of db.wallets.values()) {
+      linkedAgentIds.add(wallet.agentId);
+    }
+
+    return linkedAgentIds;
+  }
+
+  private static getDuplicateKey(agent: Agent): string {
+    return [
+      agent.walletAddress.toLowerCase(),
+      agent.type,
+      agent.role,
+      agent.name.trim().toLowerCase(),
+    ].join("|");
+  }
+
+  static pruneUnusedDuplicateAgents(): number {
+    const agents = ReadModelService.getAgents();
+    const linkedAgentIds = this.getLinkedAgentIds();
+    const groups = new Map<string, Agent[]>();
+
+    for (const agent of agents) {
+      const group = groups.get(this.getDuplicateKey(agent)) ?? [];
+      group.push(agent);
+      groups.set(this.getDuplicateKey(agent), group);
+    }
+
+    let removedCount = 0;
+
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+
+      const sorted = group.sort(
+        (a, b) =>
+          new Date(b.registeredAt).getTime() -
+          new Date(a.registeredAt).getTime()
+      );
+      const firstUsableAgent = sorted.find(
+        (agent) => linkedAgentIds.has(agent.id) || this.hasMeaningfulActivity(agent)
+      );
+      const protectedAgentId = firstUsableAgent?.id ?? sorted[0].id;
+
+      for (const agent of sorted) {
+        const isProtected = agent.id === protectedAgentId;
+        const isLinked = linkedAgentIds.has(agent.id);
+        const hasActivity = this.hasMeaningfulActivity(agent);
+
+        if (!isProtected && !isLinked && !hasActivity) {
+          db.activities = db.activities.filter((activity) => activity.agentId !== agent.id);
+          if (db.agents.delete(agent.id)) {
+            removedCount += 1;
+          }
+        }
+      }
+    }
+
+    return removedCount;
+  }
+
   static getAllAgents(): Agent[] {
     return ReadModelService.getAgents();
   }
