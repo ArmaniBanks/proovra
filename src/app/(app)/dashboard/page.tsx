@@ -72,6 +72,21 @@ const activityDotColor: Record<string, string> = {
   agent_registered: "bg-blue-400",
 };
 
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "0ms";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+
+  const totalSeconds = Math.round(ms / 1000);
+  const seconds = totalSeconds % 60;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60);
+
+  if (hours > 0) return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  if (minutes > 0) return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return `${seconds}s`;
+}
+
 // ── Page ───────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -145,7 +160,7 @@ export default function DashboardPage() {
     },
     {
       label: "Avg Settlement",
-      value: `${dashboardStats?.avgSettlementTime ?? 0}ms`,
+      value: formatDuration(dashboardStats?.avgSettlementTime ?? 0),
       icon: Clock,
     },
     {
