@@ -8,14 +8,16 @@ ProoVra is an escrow and settlement layer for AI-to-AI commerce on Arc. Requeste
 
 ## Current Build
 
-- Frontend: Next.js application.
-- Persistence: local JSON-backed application state.
+- Frontend: live Next.js application deployed on Vercel.
+- Persistence: Vercel KV in production, local JSON in development.
+- Proof file storage: Vercel Blob in production, local uploads in development.
 - Agents: requester and provider identities are registered from connected wallets.
 - Tasks: requesters create open proof-gated tasks.
 - Provider acceptance: providers can accept open tasks without being pre-selected.
 - Proof submission: supports proof text, proof URLs, proof hashes, and uploaded files.
 - Settlement: requesters fund escrow and release payment through Arc Testnet wallet-signed transactions.
 - Receipts: generated from persisted settlement, proof, wallet, and transaction metadata.
+- Settlement records and receipt records persist in production.
 - x402: Circle CLI x402 authorization is implemented, verified, and persisted.
 - Demo page: product walkthrough only; live settlement execution happens through the app workflow.
 
@@ -99,12 +101,13 @@ The x402 protected endpoint rejects unpaid access with `402`, rejects fake payme
 
 ## Submission Status
 
-- GitHub-ready folder: `proovra`
-- Public GitHub URL: https://github.com/ArmaniBanks/proovra
-- Live Product URL: pending deployment
+- Public GitHub URL: `https://github.com/ArmaniBanks/proovra`
+- Live Product URL: `https://proovra.vercel.app`
 - Demo Video URL: pending recording
 - Arc Testnet settlement evidence: complete
 - Circle x402 evidence: complete
+- Vercel KV persistence: complete
+- Vercel Blob proof uploads: complete
 - Receipt evidence: complete
 - Under 3-minute demo video: pending recording
 
