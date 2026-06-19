@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import { Receipt as ReceiptIcon, ShieldCheck, Download, ExternalLink } from "lucide-react";
 import type { Agent, Receipt, Task } from "@/lib/mock-data";
+import { getProofFileUrl } from "@/lib/proof-file-url";
 import { formatUSDC, formatTimestamp, truncateAddress } from "@/lib/utils";
 
 export default function ReceiptsPage() {
@@ -68,6 +69,9 @@ export default function ReceiptsPage() {
 
   async function downloadReceipt(receipt: Receipt, task?: Task, requester?: Agent, provider?: Agent) {
     const logoSrc = await getLogoDataUrl();
+    const proofFileUrl = receipt.proofFile
+      ? getProofFileUrl(receipt.proofFile, window.location.origin)
+      : "";
     const receiptHtml = `<!doctype html>
 <html>
 <head>
@@ -145,10 +149,10 @@ export default function ReceiptsPage() {
         ${escapeHtml(receipt.proofFile.fileName)}<br />
         ${escapeHtml(receipt.proofFile.fileType)} · ${escapeHtml(receipt.proofFile.fileSize)} bytes<br />
         Uploaded: ${escapeHtml(formatTimestamp(receipt.proofFile.uploadedAt))}<br />
-        Path: ${escapeHtml(receipt.proofFile.fileUrl)}<br />
+        Path: ${escapeHtml(proofFileUrl)}<br />
         ${receipt.proofFile.fileHash ? `File hash: ${escapeHtml(receipt.proofFile.fileHash)}` : ""}
       </div>
-      <a href="${escapeHtml(`${window.location.origin}${receipt.proofFile.fileUrl}`)}">${escapeHtml(`${window.location.origin}${receipt.proofFile.fileUrl}`)}</a>
+      <a href="${escapeHtml(proofFileUrl)}">${escapeHtml(proofFileUrl)}</a>
     </section>` : ""}
     <section style="margin-top:16px">
       <div class="muted">Escrow Transaction Hash</div>
@@ -213,6 +217,7 @@ export default function ReceiptsPage() {
           const requester = agentsById[receipt.requesterId];
           const provider = agentsById[receipt.providerId];
           const isExpanded = expandedId === receipt.id;
+          const proofFileUrl = receipt.proofFile ? getProofFileUrl(receipt.proofFile) : "";
           
           return (
             <div 
@@ -371,7 +376,7 @@ export default function ReceiptsPage() {
                           <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Uploaded Proof File</div>
                           <div className="space-y-1 font-mono text-xs text-zinc-400 bg-zinc-900 p-2 rounded border border-zinc-800 break-all">
                             <a
-                              href={receipt.proofFile.fileUrl}
+                              href={getProofFileUrl(receipt.proofFile)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="font-sans font-medium text-amber-400 hover:text-amber-300"
@@ -381,7 +386,7 @@ export default function ReceiptsPage() {
                             <div>{receipt.proofFile.fileType}</div>
                             <div>{receipt.proofFile.fileSize} bytes</div>
                             <div>Uploaded {formatTimestamp(receipt.proofFile.uploadedAt)}</div>
-                            <div>{receipt.proofFile.fileUrl}</div>
+                            <div>{proofFileUrl}</div>
                             {receipt.proofFile.fileHash && <div>{receipt.proofFile.fileHash}</div>}
                           </div>
                         </div>
@@ -466,3 +471,4 @@ function ZapIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
