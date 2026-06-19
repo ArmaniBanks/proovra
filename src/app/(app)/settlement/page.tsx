@@ -390,7 +390,11 @@ export default function SettlementPage() {
       });
 
       if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
+        const payload = (await response
+          .json()
+          .catch(() => ({ error: `Proof file upload failed with HTTP ${response.status}` }))) as {
+          error?: string;
+        };
         throw new Error(payload.error ?? "Proof file upload failed");
       }
 
