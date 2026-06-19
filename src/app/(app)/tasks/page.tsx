@@ -523,6 +523,18 @@ export default function TasksPage() {
   );
 
   useEffect(() => {
+    if (searchParams.get("focus") === "create-task") {
+      if (handledTaskParam.current === "focus:create-task") return;
+      handledTaskParam.current = "focus:create-task";
+      window.requestAnimationFrame(() => {
+        document.getElementById("create-task-form")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+      return;
+    }
+
     const taskId = searchParams.get("task");
     if (!taskId || tasks.length === 0) return;
     if (handledTaskParam.current === taskId) return;
@@ -533,9 +545,9 @@ export default function TasksPage() {
 
     window.requestAnimationFrame(() => {
       setActiveFilter(task.status === "created" && !task.providerId ? "open" : "active");
-      document.getElementById("task-workflow")?.scrollIntoView({
+      document.getElementById(`task-${task.id}`)?.scrollIntoView({
         behavior: "smooth",
-        block: "start",
+        block: "center",
       });
     });
   }, [searchParams, tasks]);
@@ -628,6 +640,12 @@ export default function TasksPage() {
       }
 
       await mutate();
+      window.requestAnimationFrame(() => {
+        document.getElementById("create-task-form")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : "Agent registration failed");
     } finally {
@@ -707,6 +725,7 @@ export default function TasksPage() {
       </div>
 
       <form
+        id="create-task-form"
         onSubmit={createTask}
         className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5"
       >
