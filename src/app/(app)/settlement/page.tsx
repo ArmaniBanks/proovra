@@ -266,7 +266,6 @@ export default function SettlementPage() {
 
       setFundTaskId("");
       setFundProofText("");
-      await mutate();
       if (payload.settlement?.id) {
         setExpandedId(payload.settlement.id);
         setFilter("in-progress");
@@ -274,6 +273,7 @@ export default function SettlementPage() {
         router.replace(`/settlement?settlement=${encodeURIComponent(payload.settlement.id)}`);
         focusSettlement(payload.settlement.id);
       }
+      void mutate(true);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Escrow funding failed");
     } finally {
@@ -369,7 +369,6 @@ export default function SettlementPage() {
       }
 
       const payload = (await response.json()) as { settlement?: Settlement };
-      await mutate();
       if (payload.settlement?.id && action !== "release-payment") {
         setExpandedId(payload.settlement.id);
         setFilter("in-progress");
@@ -387,6 +386,7 @@ export default function SettlementPage() {
         const receiptId = payload.settlement?.receiptId;
         router.push(receiptId ? `/receipts?receipt=${encodeURIComponent(receiptId)}` : "/receipts");
       }
+      void mutate(true);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Settlement action failed");
     } finally {
