@@ -27,10 +27,6 @@ function safeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
 }
 
-function shouldUseVercelBlob() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
-}
-
 function isProductionRuntime() {
   return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 }
@@ -63,7 +59,7 @@ export async function POST(req: Request) {
   let fileUrl: string;
   let filePath: string;
 
-  if (shouldUseVercelBlob()) {
+  if (isProductionRuntime() || process.env.BLOB_READ_WRITE_TOKEN) {
     const blobPath = `proofs/${storedName}`;
     const blob = await put(blobPath, bytes, {
       access: "public",
@@ -72,16 +68,6 @@ export async function POST(req: Request) {
     fileUrl = blob.url;
     filePath = blob.pathname;
   } else {
-    if (isProductionRuntime()) {
-      return NextResponse.json(
-        {
-          error:
-            "Production proof upload storage is not configured. Set BLOB_READ_WRITE_TOKEN.",
-        },
-        { status: 500 }
-      );
-    }
-
     const relativePath = `/uploads/proofs/${storedName}`;
     const localPath = join(process.cwd(), "public", "uploads", "proofs", storedName);
     await mkdir(join(process.cwd(), "public", "uploads", "proofs"), { recursive: true });
