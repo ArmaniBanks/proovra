@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { TaskService } from "@/services/task.service";
 import { ReadModelService } from "@/services/read-model.service";
+import { AgentService } from "@/services/agent.service";
 import type { PricingModel, TaskStatus } from "@/lib/mock-data";
 
 const pricingModels: PricingModel[] = [
@@ -23,6 +24,11 @@ const taskStatuses: TaskStatus[] = [
 
 export async function GET() {
   await db.ready();
+  const removedAgents = AgentService.pruneUnusedDuplicateAgents();
+  if (removedAgents > 0) {
+    await db.flush();
+  }
+
   return NextResponse.json({
     tasks: TaskService.getAllTasks(),
     agentsById: ReadModelService.getAgentMap(),
