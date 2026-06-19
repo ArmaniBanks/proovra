@@ -93,7 +93,22 @@ export default function AgentsPage() {
   if (error) return <div className="p-8 text-red-500 border border-red-500/20 bg-red-500/10 rounded-md m-4">Error loading data: {error.message}</div>;
   if (!data && loading) return <div className="animate-pulse p-8 text-zinc-500">Loading...</div>;
 
-  const filteredAgents = agents.filter((agent) => {
+  const visibleAgents = agents.filter((agent) => {
+    const hasStandaloneActivity =
+      agent.completedSettlements > 0 ||
+      agent.totalEarnings > 0 ||
+      agent.successRate > 0 ||
+      agent.reputationScore > 0 ||
+      agent.activeEscrows > 0;
+
+    if (agent.type === "requester") {
+      return hasStandaloneActivity;
+    }
+
+    return true;
+  });
+
+  const filteredAgents = visibleAgents.filter((agent) => {
     if (activeTab === "all") return true;
     if (activeTab === "provider")
       return agent.type === "provider" || agent.type === "both";
@@ -103,15 +118,15 @@ export default function AgentsPage() {
   });
 
   // Network totals
-  const totalSettlements = agents.reduce(
+  const totalSettlements = visibleAgents.reduce(
     (s, a) => s + a.completedSettlements,
     0
   );
-  const totalVolume = agents.reduce(
+  const totalVolume = visibleAgents.reduce(
     (s, a) => s + a.totalEarnings + a.totalSpending,
     0
   );
-  const totalActiveEscrows = agents.reduce(
+  const totalActiveEscrows = visibleAgents.reduce(
     (s, a) => s + a.activeEscrows,
     0
   );
@@ -187,7 +202,7 @@ export default function AgentsPage() {
 
         <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-3.5 py-1.5 text-xs font-medium text-zinc-300 backdrop-blur">
           <Users className="h-3.5 w-3.5 text-amber-500" />
-          <span className="font-mono">{agents.length}</span>
+          <span className="font-mono">{visibleAgents.length}</span>
           <span className="text-zinc-500">Agents</span>
         </div>
       </div>
@@ -323,7 +338,7 @@ export default function AgentsPage() {
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
           <SummaryItem
             label="Total Agents"
-            value={String(agents.length)}
+            value={String(visibleAgents.length)}
             icon={<Users className="h-4 w-4 text-blue-400" />}
           />
           <SummaryItem
