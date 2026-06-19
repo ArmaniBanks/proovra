@@ -103,7 +103,7 @@ export async function PATCH(req: Request) {
     try {
       const task = TaskService.acceptTask(body.taskId, body.walletAddress);
       await db.flush();
-      return NextResponse.json({ task });
+      return NextResponse.json({ task, agentsById: ReadModelService.getAgentMap() });
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Task acceptance failed" },
