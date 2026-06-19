@@ -31,6 +31,65 @@ function isProductionRuntime() {
   return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 }
 
+function isAllowedBlobUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "blob.vercel-storage.com" || url.hostname.endsWith(".blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const requestUrl = new URL(req.url);
+    const blobUrl = requestUrl.searchParams.get("url");
+    const fileName = safeFileName(requestUrl.searchParams.get("name") || "proof-file");
+
+    if (!blobUrl || !isAllowedBlobUrl(blobUrl)) {
+      return NextResponse.json({ error: "Invalid proof file URL" }, { status: 400 });
+    }
+
+    const headers: Record<string, string> = {};
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`;
+    }
+
+    const response = await fetch(blobUrl, { headers });
+    if (!response.ok || !response.body) {
+      return NextResponse.json(
+        { error: `Proof file is not accessible (${response.status})` },
+        { status: response.status }
+      );
+    }
+
+    const responseHeaders = new Headers({
+      "Content-Type": response.headers.get("content-type") || "application/octet-stream",
+      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Cache-Control": "private, max-age=300",
+    });
+    const contentLength = response.headers.get("content-length");
+    if (contentLength) {
+      responseHeaders.set("Content-Length", contentLength);
+    }
+
+    return new Response(response.body, {
+      status: 200,
+      headers: responseHeaders,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Proof file download failed",
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -66,8 +125,12 @@ export async function POST(req: Request) {
         access: process.env.PROOVRA_BLOB_ACCESS === "public" ? "public" : "private",
         contentType: file.type,
       });
-      fileUrl = blob.url;
-      filePath = blob.pathname;
+      const params = new URLSearchParams({
+        url: blob.url,
+        name: file.name,
+      });
+      fileUrl = `/api/proof-files?${params.toString()}`;
+      filePath = blob.url;
     } else {
       const relativePath = `/uploads/proofs/${storedName}`;
       const localPath = join(process.cwd(), "public", "uploads", "proofs", storedName);
