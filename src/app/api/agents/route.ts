@@ -18,6 +18,11 @@ const agentTypes: AgentType[] = ["provider", "requester", "both"];
 
 export async function GET() {
   await db.ready();
+  const removedAgents = AgentService.pruneUnusedDuplicateAgents();
+  if (removedAgents > 0) {
+    await db.flush();
+  }
+
   return NextResponse.json({
     agents: AgentService.getAllAgents(),
     dataSource: ReadModelService.getDataSourceSummary(),
