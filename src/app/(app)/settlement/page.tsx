@@ -50,6 +50,15 @@ function isValidProofHash(value?: string) {
   return Boolean(value && /^0x[a-fA-F0-9]{64}$/.test(value.trim()));
 }
 
+function focusSettlement(settlementId: string) {
+  window.requestAnimationFrame(() => {
+    document.getElementById(`settlement-${settlementId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
 export default function SettlementPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -174,6 +183,7 @@ export default function SettlementPage() {
 
     setActionId(`fund-${task.id}`);
     setActionError("");
+    setActionMessage("");
 
     try {
       const ethereum = (window as typeof window & { ethereum?: EthereumProvider }).ethereum;
@@ -259,7 +269,9 @@ export default function SettlementPage() {
       if (payload.settlement?.id) {
         setExpandedId(payload.settlement.id);
         setFilter("in-progress");
+        setActionMessage("Escrow funded. Waiting for Provider to submit proof.");
         router.replace(`/settlement?settlement=${encodeURIComponent(payload.settlement.id)}`);
+        focusSettlement(payload.settlement.id);
       }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Escrow funding failed");
@@ -361,12 +373,13 @@ export default function SettlementPage() {
         setExpandedId(payload.settlement.id);
         setFilter("in-progress");
         router.replace(`/settlement?settlement=${encodeURIComponent(payload.settlement.id)}`);
+        focusSettlement(payload.settlement.id);
       }
       setActionMessage(
         action === "submit-proof"
-          ? "Proof submitted."
+          ? "Proof submitted. Waiting for Requester to verify proof."
           : action === "verify-proof"
-          ? "Proof approved."
+          ? "Proof approved. Requester can now release payment."
           : "Payment release recorded."
       );
       if (action === "release-payment") {
@@ -561,6 +574,22 @@ export default function SettlementPage() {
           const connectedIsRequester = areSameWallet(requester?.walletAddress, walletAddress);
           const connectedIsProvider = areSameWallet(provider?.walletAddress, walletAddress);
           const partiesShareWallet = areSameWallet(requester?.walletAddress, provider?.walletAddress);
+          const roleGuidance =
+            settlement.escrowStatus === "funded"
+              ? connectedIsProvider
+                ? "Provider can submit proof now."
+                : "Waiting for Provider to submit proof."
+              : settlement.escrowStatus === "submitted"
+              ? connectedIsRequester
+                ? "Requester can verify proof now."
+                : "Waiting for Requester to verify proof."
+              : settlement.escrowStatus === "verified"
+              ? connectedIsRequester
+                ? "Requester can release payment now."
+                : "Waiting for Requester to release payment."
+              : settlement.escrowStatus === "released"
+              ? "Settlement complete. Receipt is ready for review."
+              : "";
           
           return (
             <div
@@ -855,6 +884,9 @@ export default function SettlementPage() {
                     )}
                     {walletAddress && !partiesShareWallet && ["submitted", "verified"].includes(settlement.escrowStatus) && !connectedIsRequester && (
                       <span className="text-xs text-zinc-500">Connect requester wallet to approve and release.</span>
+                    )}
+                    {walletAddress && !partiesShareWallet && roleGuidance && (
+                      <span className="text-xs text-zinc-500">{roleGuidance}</span>
                     )}
                   </div>
                   {(actionError || actionMessage) && (
