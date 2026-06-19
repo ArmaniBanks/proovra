@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import { useConnectedWallet } from "@/hooks/useConnectedWallet";
@@ -36,22 +36,37 @@ import {
   type EthereumProvider,
 } from "@/lib/arc-testnet-wallet";
 
+type SettlementResponse = {
+  settlements: Settlement[];
+  agentsById: Record<string, Agent>;
+  tasksById: Record<string, Task>;
+  fundableTasks: Task[];
+  dataSource: {
+    hasSampleRecords: boolean;
+  };
+};
+
 export default function SettlementPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const handledSettlementParam = useRef("");
-  const { data, loading, error, mutate } = useApi<{
-    settlements: Settlement[];
-    agentsById: Record<string, Agent>;
-    tasksById: Record<string, Task>;
-    fundableTasks: Task[];
-    dataSource: {
-      hasSampleRecords: boolean;
-    };
-  }>("/api/settlements");
-  const walletAddress = useConnectedWallet();
   const [filter, setFilter] = useState<"all" | "released" | "in-progress" | "failed">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const activeSettlementId = expandedId ?? searchParams.get("settlement");
+  const keepActiveSettlement = useCallback(
+    (previous: SettlementResponse, next: SettlementResponse) =>
+      Boolean(
+        activeSettlementId &&
+          previous.settlements.some((settlement) => settlement.id === activeSettlementId) &&
+          !next.settlements.some((settlement) => settlement.id === activeSettlementId)
+      ),
+    [activeSettlementId]
+  );
+  const { data, loading, error, mutate, preservedPrevious } = useApi<SettlementResponse>(
+    "/api/settlements",
+    { shouldKeepPrevious: keepActiveSettlement }
+  );
+  const walletAddress = useConnectedWallet();
   const [fundTaskId, setFundTaskId] = useState("");
   const [fundProofText, setFundProofText] = useState("");
   const [actionId, setActionId] = useState("");
@@ -104,8 +119,8 @@ export default function SettlementPage() {
     }
   }, [fundableTasks, searchParams]);
 
-  if (error) return <div className="p-8 text-red-500 border border-red-500/20 bg-red-500/10 rounded-md m-4">Error loading data: {error.message}</div>;
-  if (!data && loading) return <div className="animate-pulse p-8 text-zinc-500">Loading...</div>;
+  if (error && !data) return <div className="p-8 text-red-500 border border-red-500/20 bg-red-500/10 rounded-md m-4">Error loading data: {error.message}</div>;
+  if (!data && loading) return <div className="animate-pulse p-8 text-zinc-500">Loading settlements...</div>;
 
   const filteredSettlements = settlements.filter(s => {
     if (filter === "all") return true;
@@ -413,6 +428,14 @@ export default function SettlementPage() {
           <span className="text-xs font-medium text-zinc-300 uppercase tracking-wider">Active</span>
         </div>
       </div>
+
+      {(error || preservedPrevious) && data && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-300">
+          {error
+            ? `Latest settlement refresh failed: ${error.message}. Keeping the current workflow visible.`
+            : "Latest settlement refresh is still catching up. Keeping the current workflow visible."}
+        </div>
+      )}
 
       <div id="settlement-actions" className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
