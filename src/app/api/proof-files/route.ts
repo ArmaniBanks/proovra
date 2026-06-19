@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { put } from "@vercel/blob";
+import { head, put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import type { ProofFile } from "@/lib/mock-data";
 
@@ -40,6 +40,37 @@ function isAllowedBlobUrl(value: string) {
   }
 }
 
+function getBlobPathname(blobUrl: string) {
+  try {
+    return decodeURIComponent(new URL(blobUrl).pathname.replace(/^\/+/, ""));
+  } catch {
+    return "";
+  }
+}
+
+async function getAccessibleBlobUrl(blobUrl: string) {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const pathname = getBlobPathname(blobUrl);
+  const candidates = [blobUrl, pathname].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      const metadata = await head(candidate, token ? { token } : undefined);
+      const downloadUrl = "downloadUrl" in metadata ? metadata.downloadUrl : undefined;
+      if (typeof downloadUrl === "string" && downloadUrl) {
+        return downloadUrl;
+      }
+      if (metadata.url) {
+        return metadata.url;
+      }
+    } catch {
+      // Try the next candidate, then fall back to the original URL below.
+    }
+  }
+
+  return blobUrl;
+}
+
 export async function GET(req: Request) {
   try {
     const requestUrl = new URL(req.url);
@@ -50,12 +81,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid proof file URL" }, { status: 400 });
     }
 
-    const headers: Record<string, string> = {};
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      headers.Authorization = `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`;
-    }
-
-    const response = await fetch(blobUrl, { headers });
+    const response = await fetch(await getAccessibleBlobUrl(blobUrl));
     if (!response.ok || !response.body) {
       return NextResponse.json(
         { error: `Proof file is not accessible (${response.status})` },
@@ -125,12 +151,16 @@ export async function POST(req: Request) {
         access: process.env.PROOVRA_BLOB_ACCESS === "public" ? "public" : "private",
         contentType: file.type,
       });
+      const blobUrl =
+        "downloadUrl" in blob && typeof blob.downloadUrl === "string"
+          ? blob.downloadUrl
+          : blob.url;
       const params = new URLSearchParams({
-        url: blob.url,
+        url: blobUrl,
         name: file.name,
       });
       fileUrl = `/api/proof-files?${params.toString()}`;
-      filePath = blob.url;
+      filePath = blob.pathname;
     } else {
       const relativePath = `/uploads/proofs/${storedName}`;
       const localPath = join(process.cwd(), "public", "uploads", "proofs", storedName);
