@@ -471,4 +471,3 @@ function ZapIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
-
