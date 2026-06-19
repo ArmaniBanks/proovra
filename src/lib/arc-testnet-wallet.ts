@@ -168,7 +168,9 @@ export async function waitForArcReceipt(txHash: string) {
     if (payload.error?.message) throw new Error(payload.error.message);
     if (payload.result) {
       if (payload.result.status !== "0x1") {
-        throw new Error(`Arc transaction failed: ${txHash}`);
+        throw new Error(
+          `Arc transaction reverted on Arc Testnet: ${txHash}. Confirm the connected wallet is the requester, the escrow is still open, and the proof hash matches the escrow commitment. ArcScan: ${arcTxLink(txHash)}`
+        );
       }
       return {
         ...payload.result,
