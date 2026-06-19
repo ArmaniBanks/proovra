@@ -178,8 +178,8 @@ export default function AgentsPage() {
         description: "",
         walletAddress: "",
       });
-      await mutate();
       router.push("/tasks?focus=create-task");
+      void mutate(true);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Agent registration failed");
     } finally {
