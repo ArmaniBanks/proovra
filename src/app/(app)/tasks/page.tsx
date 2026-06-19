@@ -475,6 +475,8 @@ export default function TasksPage() {
   const [formError, setFormError] = useState("");
   const [agentAction, setAgentAction] = useState("");
   const [agentError, setAgentError] = useState("");
+  const [localTasksById, setLocalTasksById] = useState<Record<string, Task>>({});
+  const [localAgentsById, setLocalAgentsById] = useState<Record<string, Agent>>({});
   const [taskForm, setTaskForm] = useState<{
     title: string;
     requesterId: string;
@@ -490,8 +492,18 @@ export default function TasksPage() {
     pricingModel: "per-task",
     verificationCriteria: "",
   });
-  const tasks = useMemo(() => data?.tasks ?? [], [data?.tasks]);
-  const agentsById = useMemo(() => data?.agentsById ?? {}, [data?.agentsById]);
+  const tasks = useMemo(() => {
+    const merged = new Map<string, Task>();
+    for (const task of data?.tasks ?? []) merged.set(task.id, task);
+    for (const task of Object.values(localTasksById)) merged.set(task.id, task);
+    return Array.from(merged.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [data?.tasks, localTasksById]);
+  const agentsById = useMemo(
+    () => ({ ...(data?.agentsById ?? {}), ...localAgentsById }),
+    [data?.agentsById, localAgentsById]
+  );
   const agents = useMemo(() => Object.values(agentsById), [agentsById]);
   const requesters = sortAgentsForWallet(
     agents.filter((agent) => agent.type === "requester" || agent.type === "both"),
@@ -585,6 +597,9 @@ export default function TasksPage() {
       }
 
       const payload = (await response.json()) as { task?: Task };
+      if (payload.task) {
+        setLocalTasksById((current) => ({ ...current, [payload.task!.id]: payload.task! }));
+      }
 
       setTaskForm({
         title: "",
@@ -633,6 +648,7 @@ export default function TasksPage() {
 
       const payload = (await response.json()) as { agent?: Agent };
       if (payload.agent) {
+        setLocalAgentsById((current) => ({ ...current, [payload.agent!.id]: payload.agent! }));
         setTaskForm((form) => ({
           ...form,
           requesterId: payload.agent?.id ?? form.requesterId,
@@ -677,7 +693,25 @@ export default function TasksPage() {
         throw new Error(payload.error ?? "Task acceptance failed");
       }
 
-      const payload = (await response.json()) as { task?: Task };
+      const payload = (await response.json()) as {
+        task?: Task;
+        agentsById?: Record<string, Agent>;
+      };
+      if (payload.task) {
+        setLocalTasksById((current) => ({ ...current, [payload.task!.id]: payload.task! }));
+      }
+      if (payload.agentsById) {
+        setLocalAgentsById((current) => ({ ...current, ...payload.agentsById }));
+      }
+      if (payload.task && typeof window !== "undefined") {
+        window.sessionStorage.setItem(
+          "proovra:accepted-task-handoff",
+          JSON.stringify({
+            task: payload.task,
+            agentsById: payload.agentsById ?? agentsById,
+          })
+        );
+      }
       if (payload.task?.id) {
         router.push(`/settlement?task=${encodeURIComponent(payload.task.id)}`);
       } else {
