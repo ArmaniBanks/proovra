@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     if (isProductionRuntime() || process.env.BLOB_READ_WRITE_TOKEN) {
       const blobPath = `proofs/${storedName}`;
       const blob = await put(blobPath, bytes, {
-        access: "public",
+        access: process.env.PROOVRA_BLOB_ACCESS === "public" ? "public" : "private",
         contentType: file.type,
       });
       fileUrl = blob.url;
