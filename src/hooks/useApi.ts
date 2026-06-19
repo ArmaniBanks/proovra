@@ -19,7 +19,7 @@ export function useApi<T>(endpoint: string, options: UseApiOptions<T> = {}) {
       if (!isBackgroundPoll && !hasDataRef.current) {
         setLoading(true);
       }
-      const res = await fetch(endpoint);
+      const res = await fetch(endpoint, { cache: "no-store" });
       if (!res.ok) throw new Error(`API failed: ${res.status}`);
       const json = (await res.json()) as T;
       setData((previous) => {
@@ -43,10 +43,10 @@ export function useApi<T>(endpoint: string, options: UseApiOptions<T> = {}) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchApi();
-    // Poll every 2 seconds for live feeling in demo mode
+    // Poll frequently enough for cross-wallet workflow handoffs to feel live.
     const interval = setInterval(() => {
       void fetchApi(true);
-    }, 2000);
+    }, 1000);
     return () => clearInterval(interval);
   }, [fetchApi]);
 
