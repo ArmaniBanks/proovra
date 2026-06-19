@@ -594,11 +594,11 @@ export default function TasksPage() {
         pricingModel: "per-task",
         verificationCriteria: "",
       });
-      await mutate();
       setActiveFilter("open");
       if (payload.task?.id) {
         router.replace(`/tasks?task=${encodeURIComponent(payload.task.id)}`);
       }
+      void mutate(true);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Task creation failed");
     } finally {
@@ -639,13 +639,13 @@ export default function TasksPage() {
         }));
       }
 
-      await mutate();
       window.requestAnimationFrame(() => {
         document.getElementById("create-task-form")?.scrollIntoView({
           behavior: "smooth",
           block: "start",
         });
       });
+      void mutate(true);
     } catch (error) {
       setAgentError(error instanceof Error ? error.message : "Agent registration failed");
     } finally {
@@ -678,12 +678,12 @@ export default function TasksPage() {
       }
 
       const payload = (await response.json()) as { task?: Task };
-      await mutate();
       if (payload.task?.id) {
         router.push(`/settlement?task=${encodeURIComponent(payload.task.id)}`);
       } else {
         router.push("/settlement");
       }
+      void mutate(true);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Task acceptance failed");
     } finally {
