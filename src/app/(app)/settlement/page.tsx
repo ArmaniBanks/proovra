@@ -77,6 +77,10 @@ function focusSettlement(settlementId: string) {
   });
 }
 
+function getEscrowProofCommitment(settlement: Settlement) {
+  return settlement.escrowProofCommitment ?? settlement.proofHash;
+}
+
 async function fetchSettlementSnapshot() {
   const response = await fetch("/api/settlements", { cache: "no-store" });
   if (!response.ok) {
@@ -382,7 +386,9 @@ export default function SettlementPage() {
         const snapshot = await fetchSettlementSnapshot();
         latestAgentsById = { ...snapshot.agentsById, ...localAgentsById };
         latestTasksById = { ...snapshot.tasksById, ...localTasksById };
-        settlement = snapshot.settlements.find((candidate) => candidate.id === settlementId);
+        settlement =
+          snapshot.settlements.find((candidate) => candidate.id === settlementId) ??
+          settlement;
         if (settlement) {
           setLocalSettlementsById((current) => ({
             ...current,
@@ -423,15 +429,16 @@ export default function SettlementPage() {
         if (settlement.escrowStatus !== "verified" || settlement.verificationResult !== "passed") {
           throw new Error("Proof must be verified before release payment.");
         }
-        if (!settlement?.externalEscrowId || !settlement.proofHash) {
-          throw new Error("Arc escrow id and proof hash are required before release.");
+        const escrowProofCommitment = getEscrowProofCommitment(settlement);
+        if (!settlement?.externalEscrowId || !escrowProofCommitment) {
+          throw new Error("Arc escrow id and escrow proof commitment are required before release.");
         }
         await ensureArcTestnet(ethereum);
         const releaseTxHash = await sendWalletTransaction(
           ethereum,
           walletAddress,
           ARC_TESTNET.settlementContract,
-          encodeReleaseAfterProof(settlement.externalEscrowId, settlement.proofHash)
+          encodeReleaseAfterProof(settlement.externalEscrowId, escrowProofCommitment)
         );
         const releaseReceipt = await waitForArcReceipt(releaseTxHash);
         releaseMetadata = {
@@ -1150,17 +1157,4 @@ function MiniFlowNode({ label, time, completed, isLast, status }: { label: strin
       <div className={cn("pb-4", isLast && "pb-0")}>
         <div className={cn("text-sm font-medium", color)}>{label}</div>
         {time && <div className="text-xs text-zinc-500 mt-0.5">{time}</div>}
-        {status === "failed" && <div className="text-xs text-red-400 mt-0.5">Verification criteria not met</div>}
-      </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, children }: { label: string, children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-xs text-zinc-500 mb-1">{label}</div>
-      <div>{children}</div>
-    </div>
-  );
-}
+        {status === "failed" && <div className="text-xs text-red-400 mt-0.5">Verification criteria not met</di
