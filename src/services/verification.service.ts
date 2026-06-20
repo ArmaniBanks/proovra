@@ -54,16 +54,6 @@ export class VerificationService {
     }
 
     const submittedProofHash = normalizeProofHash(proof);
-    const hasExplicitProofHash = Boolean(
-      proof.proofHash && /^0x[a-fA-F0-9]{64}$/.test(proof.proofHash)
-    );
-    if (
-      hasExplicitProofHash &&
-      settlement.proofHash &&
-      settlement.proofHash.toLowerCase() !== submittedProofHash.toLowerCase()
-    ) {
-      throw new Error("Submitted proof does not match the escrow proof commitment.");
-    }
     EscrowService.updateEscrowStatus(settlementId, "submitted", {
       proofHash: settlement.proofHash || submittedProofHash,
       proofUrl: proof.proofUrl,
