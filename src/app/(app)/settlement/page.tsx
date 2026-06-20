@@ -77,6 +77,17 @@ function focusSettlement(settlementId: string) {
   });
 }
 
+async function fetchSettlementSnapshot() {
+  const response = await fetch("/api/settlements", { cache: "no-store" });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({ error: response.statusText }))) as {
+      error?: string;
+    };
+    throw new Error(payload.error ?? "Latest settlement refresh failed");
+  }
+  return (await response.json()) as SettlementResponse;
+}
+
 export default function SettlementPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -364,9 +375,26 @@ export default function SettlementPage() {
     setActionMessage("");
 
     try {
-      const settlement = settlements.find((candidate) => candidate.id === settlementId);
-      const requester = settlement ? agentsById[settlement.requesterId] : undefined;
-      const provider = settlement ? agentsById[settlement.providerId] : undefined;
+      let settlement = settlements.find((candidate) => candidate.id === settlementId);
+      let latestAgentsById = agentsById;
+      let latestTasksById = tasksById;
+      if (action === "release-payment") {
+        const snapshot = await fetchSettlementSnapshot();
+        latestAgentsById = { ...snapshot.agentsById, ...localAgentsById };
+        latestTasksById = { ...snapshot.tasksById, ...localTasksById };
+        settlement = snapshot.settlements.find((candidate) => candidate.id === settlementId);
+        if (settlement) {
+          setLocalSettlementsById((current) => ({
+            ...current,
+            [settlement!.id]: settlement!,
+          }));
+        }
+      }
+      const requester = settlement ? latestAgentsById[settlement.requesterId] : undefined;
+      const provider = settlement ? latestAgentsById[settlement.providerId] : undefined;
+      if (!settlement) {
+        throw new Error("Settlement not found. Refresh and try again.");
+      }
       if (settlement && areSameWallet(requester?.walletAddress, provider?.walletAddress)) {
         throw new Error("Requester wallet and provider wallet must be different.");
       }
@@ -388,6 +416,12 @@ export default function SettlementPage() {
         const ethereum = (window as typeof window & { ethereum?: EthereumProvider }).ethereum;
         if (!ethereum) {
           throw new Error("MetaMask or Rabby wallet is required to release escrow on Arc Testnet.");
+        }
+        if (settlement.escrowStatus === "released" || settlement.releaseTxHash) {
+          throw new Error("This escrow has already been released.");
+        }
+        if (settlement.escrowStatus !== "verified" || settlement.verificationResult !== "passed") {
+          throw new Error("Proof must be verified before release payment.");
         }
         if (!settlement?.externalEscrowId || !settlement.proofHash) {
           throw new Error("Arc escrow id and proof hash are required before release.");
@@ -446,7 +480,7 @@ export default function SettlementPage() {
           ...current,
           [payload.settlement!.id]: payload.settlement!,
         }));
-        const task = tasksById[payload.settlement.taskId];
+        const task = latestTasksById[payload.settlement.taskId];
         if (task) {
           setLocalTasksById((current) => ({
             ...current,
