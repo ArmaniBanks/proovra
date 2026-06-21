@@ -1157,4 +1157,17 @@ function MiniFlowNode({ label, time, completed, isLast, status }: { label: strin
       <div className={cn("pb-4", isLast && "pb-0")}>
         <div className={cn("text-sm font-medium", color)}>{label}</div>
         {time && <div className="text-xs text-zinc-500 mt-0.5">{time}</div>}
-        {status === "failed" && <div className="text-xs text-red-400 mt-0.5">Verification criteria not met</di
+        {status === "failed" && <div className="text-xs text-red-400 mt-0.5">Verification criteria not met</div>}
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, children }: { label: string, children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-zinc-500 mb-1">{label}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
