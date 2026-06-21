@@ -29,7 +29,8 @@ export class SettlementService {
     if (settlement.escrowStatus !== "verified" || settlement.verificationResult !== "passed") {
       throw new Error("Cannot release funds: proof not verified");
     }
-    if (!settlement.proofHash) throw new Error("Cannot release funds without proof hash.");
+    const escrowProofCommitment = settlement.escrowProofCommitment ?? settlement.proofHash;
+    if (!escrowProofCommitment) throw new Error("Cannot release funds without escrow proof commitment.");
     if (!settlement.externalEscrowId) throw new Error("Arc escrow id is missing.");
     if (!/^0x[a-fA-F0-9]{64}$/.test(input.txHash)) {
       throw new Error("Release transaction hash is required.");
@@ -110,12 +111,13 @@ export class SettlementService {
     const { settlement: settlementProvider, settlementMode } = getProviders();
     const transactionMetadata =
       SettlementTransactionService.getSettlementTransaction(settlementId);
+    const escrowProofCommitment = settlement.escrowProofCommitment ?? settlement.proofHash;
     const arcTx = await settlementProvider.releaseFunds({
       settlementId,
       requesterId: settlement.requesterId,
       providerId: settlement.providerId,
       amount: settlement.amount,
-      proofHash: settlement.proofHash,
+      proofHash: escrowProofCommitment,
       externalEscrowId: transactionMetadata?.externalEscrowId,
     });
     SettlementTransactionService.recordSettlementTransaction(
