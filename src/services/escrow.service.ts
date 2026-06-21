@@ -54,6 +54,8 @@ export class EscrowService {
       providerId: input.providerId,
       amount: input.amount,
       escrowStatus: "funded",
+      // On-chain release must always use this original escrow proof commitment.
+      escrowProofCommitment: input.proofHash,
       proofHash: input.proofHash,
       verificationResult: "pending",
       arcTxHash: input.txHash,
@@ -143,6 +145,7 @@ export class EscrowService {
       providerId,
       amount,
       escrowStatus: "funded",
+      escrowProofCommitment: proofHash,
       proofHash,
       verificationResult: "pending",
       arcTxHash: "",
