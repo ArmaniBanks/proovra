@@ -55,8 +55,7 @@ export class VerificationService {
 
     const submittedProofHash = normalizeProofHash(proof);
     EscrowService.updateEscrowStatus(settlementId, "submitted", {
-      // Provider evidence is review metadata. It must not replace the
-      // original on-chain escrow proof commitment needed by releaseAfterProof.
+      /* Provider evidence is review metadata and must not replace the original on-chain escrow proof commitment. */
       escrowProofCommitment: settlement.escrowProofCommitment || settlement.proofHash,
       proofHash: settlement.proofHash,
       submittedProofEvidenceHash: submittedProofHash,
