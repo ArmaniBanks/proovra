@@ -6,17 +6,39 @@ const TERMINAL_SETTLEMENTS = new Set<Settlement["escrowStatus"]>([
   "refunded",
   "failed",
 ]);
+const STALE_INCOMPLETE_SETTLEMENT_MS = 6 * 60 * 60 * 1000;
+
+function isSuccessfulReleasedSettlement(settlement: Settlement): boolean {
+  return Boolean(
+    settlement.escrowStatus === "released" &&
+      settlement.verificationResult === "passed" &&
+      settlement.releaseTxHash
+  );
+}
+
+function isStaleIncompleteSettlement(settlement: Settlement): boolean {
+  if (isSuccessfulReleasedSettlement(settlement)) return false;
+  if (!["submitted", "verified", "failed", "refunded"].includes(settlement.escrowStatus)) {
+    return false;
+  }
+  if (settlement.releaseTxHash || settlement.receiptId) return false;
+
+  const lastUpdated = settlement.verifiedAt ?? settlement.proofSubmittedAt ?? settlement.createdAt;
+  return Date.now() - new Date(lastUpdated).getTime() > STALE_INCOMPLETE_SETTLEMENT_MS;
+}
+
+function isVisibleSettlement(settlement: Settlement): boolean {
+  return isSuccessfulReleasedSettlement(settlement) || !isStaleIncompleteSettlement(settlement);
+}
 
 function releasedSettlements() {
-  return Array.from(db.settlements.values()).filter(
-    (settlement) => settlement.escrowStatus === "released"
+  return Array.from(db.settlements.values()).filter((settlement) =>
+    isSuccessfulReleasedSettlement(settlement)
   );
 }
 
 function completedSettlements() {
-  return Array.from(db.settlements.values()).filter((settlement) =>
-    TERMINAL_SETTLEMENTS.has(settlement.escrowStatus)
-  );
+  return releasedSettlements();
 }
 
 function average(values: number[]) {
@@ -57,18 +79,16 @@ export class ReadModelService {
   }
 
   static getAgents(): Agent[] {
-    const settlements = Array.from(db.settlements.values());
+    const settlements = Array.from(db.settlements.values()).filter((settlement) =>
+      isVisibleSettlement(settlement)
+    );
+    const successfulReleased = settlements.filter((settlement) =>
+      isSuccessfulReleasedSettlement(settlement)
+    );
 
     return Array.from(db.agents.values()).map((agent) => {
-      const providedCompleted = settlements.filter(
-        (settlement) =>
-          settlement.providerId === agent.id &&
-          TERMINAL_SETTLEMENTS.has(settlement.escrowStatus)
-      );
-      const successfulProvided = providedCompleted.filter(
-        (settlement) =>
-          settlement.escrowStatus === "released" &&
-          settlement.verificationResult === "passed"
+      const successfulProvided = successfulReleased.filter(
+        (settlement) => settlement.providerId === agent.id
       );
       const activeEscrows = settlements.filter(
         (settlement) =>
@@ -83,11 +103,10 @@ export class ReadModelService {
         .filter(
           (settlement) =>
             settlement.requesterId === agent.id &&
-            settlement.escrowStatus === "released" &&
-            settlement.verificationResult === "passed"
+            isSuccessfulReleasedSettlement(settlement)
         )
         .reduce((sum, settlement) => sum + settlement.amount, 0);
-      const successRate = successRateFor(providedCompleted);
+      const successRate = successRateFor(successfulProvided);
 
       return {
         ...agent,
@@ -96,7 +115,7 @@ export class ReadModelService {
         totalSpending,
         activeEscrows,
         successRate,
-        reputationScore: reputationFromActivity(successRate, providedCompleted.length),
+        reputationScore: reputationFromActivity(successRate, successfulProvided.length),
       };
     });
   }
@@ -114,10 +133,12 @@ export class ReadModelService {
   }
 
   static getDashboardStats(): DashboardStats {
-    const settlements = Array.from(db.settlements.values());
+    const settlements = Array.from(db.settlements.values()).filter((settlement) =>
+      isVisibleSettlement(settlement)
+    );
     const released = releasedSettlements();
     const completed = completedSettlements();
-    const receipts = Array.from(db.receipts.values());
+    const receipts = this.getReceipts();
     const visibleAgents = this.getAgents().filter((agent) => this.isVisibleAgent(agent));
     const now = Date.now();
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
@@ -138,7 +159,7 @@ export class ReadModelService {
         settlementTimes.length > 0
           ? average(settlementTimes)
           : average(receipts.map((receipt) => receipt.settlementTime)),
-      totalTransactions: settlements.length + receipts.length,
+      totalTransactions: released.length + receipts.length,
       volume24h: released
         .filter((settlement) => {
           const timestamp = settlement.settledAt ?? settlement.createdAt;
@@ -149,8 +170,24 @@ export class ReadModelService {
   }
 
   static getActivities(limit = 15) {
+    const hiddenSettlementIds = new Set(
+      Array.from(db.settlements.values())
+        .filter((settlement) => !isVisibleSettlement(settlement))
+        .map((settlement) => settlement.id)
+    );
+    const hiddenTaskIds = new Set(
+      Array.from(db.settlements.values())
+        .filter((settlement) => hiddenSettlementIds.has(settlement.id))
+        .map((settlement) => settlement.taskId)
+    );
+
     return db.activities
       .slice()
+      .filter(
+        (activity) =>
+          !Array.from(hiddenSettlementIds).some((id) => activity.description.includes(id)) &&
+          !Array.from(hiddenTaskIds).some((id) => activity.description.includes(id))
+      )
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
   }
@@ -164,13 +201,21 @@ export class ReadModelService {
   }
 
   static getReceipts(): Receipt[] {
-    return Array.from(db.receipts.values()).sort(
+    const successfulSettlementIds = new Set(
+      releasedSettlements().map((settlement) => settlement.id)
+    );
+
+    return Array.from(db.receipts.values()).filter(
+      (receipt) => successfulSettlementIds.has(receipt.settlementId)
+    ).sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     );
   }
 
   static getSettlements(): Settlement[] {
-    return Array.from(db.settlements.values()).sort(
+    return Array.from(db.settlements.values()).filter(
+        (settlement) => isVisibleSettlement(settlement)
+    ).sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     );
   }
