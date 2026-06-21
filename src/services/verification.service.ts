@@ -97,4 +97,4 @@ export class VerificationService {
     EscrowService.updateEscrowStatus(settlementId, "verified", {
       verificationResult: "passed",
       verifiedAt: new Date(),
-      verifiedBy: verifie
+      verifiedBy: verifier
