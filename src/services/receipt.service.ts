@@ -42,7 +42,7 @@ export class ReceiptService {
       requesterId: settlement.requesterId,
       providerId: settlement.providerId,
       amount: settlement.amount,
-      proofHash: settlement.proofHash,
+      proofHash: settlement.escrowProofCommitment ?? settlement.proofHash,
       proofUrl: settlement.proofUrl,
       proofText: settlement.proofText,
       proofFile: settlement.proofFile,
