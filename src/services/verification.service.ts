@@ -97,4 +97,16 @@ export class VerificationService {
     EscrowService.updateEscrowStatus(settlementId, "verified", {
       verificationResult: "passed",
       verifiedAt: new Date(),
-      verifiedBy: verifier
+      verifiedBy: verifier,
+    });
+    TaskService.updateTaskStatus(settlement.taskId, "verified");
+
+    db.addActivity({
+      type: "verification_passed",
+      agentId: settlement.requesterId,
+      description: `Verifier approved proof for ${settlementId}`,
+    });
+
+    return true;
+  }
+}
