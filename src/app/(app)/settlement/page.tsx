@@ -81,6 +81,27 @@ function getEscrowProofCommitment(settlement: Settlement) {
   return settlement.escrowProofCommitment ?? settlement.proofHash;
 }
 
+const settlementStatusRank: Record<Settlement["escrowStatus"], number> = {
+  created: 0,
+  funded: 1,
+  submitted: 2,
+  verified: 3,
+  released: 4,
+  refunded: 4,
+  failed: 4,
+};
+
+function isStaleSettlementState(previous: Settlement, next: Settlement) {
+  return settlementStatusRank[next.escrowStatus] < settlementStatusRank[previous.escrowStatus];
+}
+
+function mergeSettlementState(previous: Settlement | undefined, next: Settlement) {
+  if (previous && isStaleSettlementState(previous, next)) {
+    return previous;
+  }
+  return next;
+}
+
 async function fetchSettlementSnapshot() {
   const response = await fetch("/api/settlements", { cache: "no-store" });
   if (!response.ok) {
@@ -100,12 +121,20 @@ export default function SettlementPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const activeSettlementId = expandedId ?? searchParams.get("settlement");
   const keepActiveSettlement = useCallback(
-    (previous: SettlementResponse, next: SettlementResponse) =>
-      Boolean(
-        activeSettlementId &&
-          previous.settlements.some((settlement) => settlement.id === activeSettlementId) &&
-          !next.settlements.some((settlement) => settlement.id === activeSettlementId)
-      ),
+    (previous: SettlementResponse, next: SettlementResponse) => {
+      const nextById = new Map(next.settlements.map((settlement) => [settlement.id, settlement]));
+      const hasStaleDowngrade = previous.settlements.some((settlement) => {
+        const nextSettlement = nextById.get(settlement.id);
+        return Boolean(nextSettlement && isStaleSettlementState(settlement, nextSettlement));
+      });
+
+      return Boolean(
+        hasStaleDowngrade ||
+          (activeSettlementId &&
+            previous.settlements.some((settlement) => settlement.id === activeSettlementId) &&
+            !next.settlements.some((settlement) => settlement.id === activeSettlementId))
+      );
+    },
     [activeSettlementId]
   );
   const { data, loading, error, mutate, preservedPrevious } = useApi<SettlementResponse>(
@@ -132,9 +161,11 @@ export default function SettlementPage() {
   );
   const settlements = useMemo(() => {
     const merged = new Map<string, Settlement>();
-    for (const settlement of data?.settlements ?? []) merged.set(settlement.id, settlement);
+    for (const settlement of data?.settlements ?? []) {
+      merged.set(settlement.id, mergeSettlementState(merged.get(settlement.id), settlement));
+    }
     for (const settlement of Object.values(localSettlementsById)) {
-      merged.set(settlement.id, settlement);
+      merged.set(settlement.id, mergeSettlementState(merged.get(settlement.id), settlement));
     }
     return Array.from(merged.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -342,7 +373,7 @@ export default function SettlementPage() {
       if (payload.settlement) {
         setLocalSettlementsById((current) => ({
           ...current,
-          [payload.settlement!.id]: payload.settlement!,
+          [payload.settlement!.id]: mergeSettlementState(current[payload.settlement!.id], payload.settlement!),
         }));
         setLocalTasksById((current) => ({
           ...current,
@@ -392,7 +423,7 @@ export default function SettlementPage() {
         if (settlement) {
           setLocalSettlementsById((current) => ({
             ...current,
-            [settlement!.id]: settlement!,
+            [settlement!.id]: mergeSettlementState(current[settlement!.id], settlement!),
           }));
         }
       }
@@ -485,7 +516,7 @@ export default function SettlementPage() {
       if (payload.settlement) {
         setLocalSettlementsById((current) => ({
           ...current,
-          [payload.settlement!.id]: payload.settlement!,
+          [payload.settlement!.id]: mergeSettlementState(current[payload.settlement!.id], payload.settlement!),
         }));
         const task = latestTasksById[payload.settlement.taskId];
         if (task) {
