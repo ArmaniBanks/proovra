@@ -83,6 +83,8 @@ export interface Settlement {
   amount: number;
   escrowStatus: EscrowStatus;
   proofHash: string;
+  escrowProofCommitment?: string;
+  submittedProofEvidenceHash?: string;
   proofUrl?: string;
   proofText?: string;
   proofFile?: ProofFile;
