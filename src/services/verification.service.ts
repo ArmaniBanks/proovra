@@ -55,7 +55,11 @@ export class VerificationService {
 
     const submittedProofHash = normalizeProofHash(proof);
     EscrowService.updateEscrowStatus(settlementId, "submitted", {
-      proofHash: settlement.proofHash || submittedProofHash,
+      // Provider evidence is review metadata. It must not replace the
+      // original on-chain escrow proof commitment needed by releaseAfterProof.
+      escrowProofCommitment: settlement.escrowProofCommitment || settlement.proofHash,
+      proofHash: settlement.proofHash,
+      submittedProofEvidenceHash: submittedProofHash,
       proofUrl: proof.proofUrl,
       proofText: proof.proofText,
       proofFile: proof.proofFile,
@@ -93,16 +97,4 @@ export class VerificationService {
     EscrowService.updateEscrowStatus(settlementId, "verified", {
       verificationResult: "passed",
       verifiedAt: new Date(),
-      verifiedBy: verifier,
-    });
-    TaskService.updateTaskStatus(settlement.taskId, "verified");
-
-    db.addActivity({
-      type: "verification_passed",
-      agentId: settlement.requesterId,
-      description: `Verifier approved proof for ${settlementId}`,
-    });
-
-    return true;
-  }
-}
+      verifiedBy: verifie
