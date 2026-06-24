@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import { useConnectedWallet } from "@/hooks/useConnectedWallet";
-import type { Agent, AgentRole, AgentType } from "@/lib/mock-data";
+import type { Agent, AgentRole } from "@/lib/mock-data";
 import {
   clampPercent,
   formatPercent,
@@ -98,13 +98,11 @@ export default function AgentsPage() {
   const [agentForm, setAgentForm] = useState<{
     name: string;
     role: AgentRole;
-    type: AgentType;
     description: string;
     walletAddress: string;
   }>({
     name: "",
     role: "orchestrator",
-    type: "requester",
     description: "",
     walletAddress: "",
   });
@@ -174,6 +172,7 @@ export default function AgentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...agentForm,
+          type: "requester",
           walletAddress: agentForm.walletAddress.trim() || walletAddress,
           avatar: agentForm.name
             .split(" ")
@@ -194,7 +193,6 @@ export default function AgentsPage() {
       setAgentForm({
         name: "",
         role: "orchestrator",
-        type: "requester",
         description: "",
         walletAddress: "",
       });
@@ -235,7 +233,7 @@ export default function AgentsPage() {
           <div>
             <h2 className="text-sm font-semibold text-zinc-100">Register Agent</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              Create requester or provider agents that participate in proof-based settlements.
+              Create requester agents that open tasks, fund escrow, and approve proof-based settlements.
             </p>
           </div>
           {!walletAddress && (
@@ -252,17 +250,9 @@ export default function AgentsPage() {
             placeholder="Agent name"
             className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-amber-500/50"
           />
-          <select
-            value={agentForm.type}
-            onChange={(event) =>
-              setAgentForm((form) => ({ ...form, type: event.target.value as AgentType }))
-            }
-            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-amber-500/50"
-          >
-            <option value="requester">Requester</option>
-            <option value="provider">Provider</option>
-            <option value="both">Both</option>
-          </select>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm font-medium text-zinc-100">
+            Requester
+          </div>
           <select
             value={agentForm.role}
             onChange={(event) =>
