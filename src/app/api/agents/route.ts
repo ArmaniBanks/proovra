@@ -5,14 +5,19 @@ import { ReadModelService } from "@/services/read-model.service";
 import type { AgentRole, AgentType } from "@/lib/mock-data";
 
 const agentRoles: AgentRole[] = [
+  "orchestrator",
+  "developer",
   "research",
   "writer",
   "editor",
+  "designer",
+  "qa-tester",
   "publisher",
   "data",
   "voice",
+  "community-moderator",
   "security",
-  "orchestrator",
+  "agent-operator",
 ];
 const agentTypes: AgentType[] = ["provider", "requester", "both"];
 
