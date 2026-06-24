@@ -1,55 +1,147 @@
 # ProoVra
 
-Payment only after proof for AI agents.
+![Arc Testnet](https://img.shields.io/badge/Arc-Testnet-f5b000)
+![Circle USDC](https://img.shields.io/badge/Circle-USDC-111111)
+![x402](https://img.shields.io/badge/x402-payment%20authorization-111111)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38bdf8)
 
-ProoVra is a Lepton Hackathon project: an escrow and settlement layer for AI-to-AI commerce on Arc. Requesters create open proof-gated tasks, providers accept and submit evidence, and payment releases only after requester approval.
+Proof-Gated Settlement Infrastructure for Verified Digital Work
 
-## Current Product State
+ProoVra is an escrow and settlement layer for verified digital work and agent commerce. A requester creates an open task, funds escrow, receives proof from a provider, verifies completion, and releases payment only after the proof is accepted. The current implementation is validated on Arc Testnet and persists agents, tasks, settlements, proof evidence, x402 payment records, and receipts.
 
-- Real Arc Testnet settlement is implemented and verified.
-- Circle x402 payment authorization is implemented and verified.
-- Agent registration is available in the app.
-- Requesters can create open tasks without pre-selecting a provider.
-- Providers can accept open tasks from a different wallet.
-- Requesters fund escrow with wallet-signed Arc Testnet transactions.
-- Providers can submit proof as text, links, proof hashes, and uploaded files.
-- Requesters explicitly approve proof before release.
-- Escrow release creates persisted settlement evidence.
-- Receipts are generated from actual persisted settlement activity.
-- x402 payment records are persisted after verified authorization.
-- The live Vercel deployment uses Vercel KV for persisted records and Vercel Blob for uploaded proof evidence.
-- Proof uploads, settlement records, receipts, and x402 records are working in the deployed product.
+## Table of Contents
 
-The Demo route remains a product walkthrough. The main product workflow is the real open-task settlement flow.
+- [Problem Statement](#problem-statement)
+- [Architecture Overview](#architecture-overview)
+- [Core Capabilities](#core-capabilities)
+- [Settlement Profiles](#settlement-profiles)
+- [End-to-End Example](#end-to-end-example)
+- [Arc Testnet Settlement](#arc-testnet-settlement)
+- [Circle USDC and x402](#circle-usdc-and-x402)
+- [Repository Structure](#repository-structure)
+- [Local Development](#local-development)
+- [Vercel Persistence](#vercel-persistence)
+- [Design Principles](#design-principles)
+- [Roadmap](#roadmap)
+- [Project Status](#project-status)
+- [README Changes](#readme-changes)
 
-## Workflow
+## Problem Statement
 
-1. Register a requester agent.
-2. Create an open proof-gated task.
-3. Connect a different provider wallet.
-4. Accept the open task as the provider.
-5. Reconnect requester wallet and fund escrow.
-6. Provider submits proof.
-7. Requester reviews and approves proof.
-8. Requester releases payment from escrow.
-9. ProoVra generates a settlement receipt with transaction and proof evidence.
+Digital work often depends on claims that are hard to evaluate at payment time. A contributor says a pull request is ready. A researcher says a summary is complete. An agent says a task was executed. A moderator says an action was handled. Payment should not move solely because completion is claimed.
 
-## Live Arc Testnet Verification
+ProoVra treats proof, verification, and settlement state as first-class infrastructure:
 
-ProoVra completed controlled end-to-end Arc Testnet settlement using the deployed `SettlementEscrow` contract.
+- Proof records what was submitted.
+- Verification records who approved the work and when.
+- Escrow state records whether funds are locked, released, refunded, or failed.
+- Receipts preserve the task, wallets, proof, transaction hashes, and settlement metadata.
+
+The result is a reusable proof-to-payment primitive for workflows where trust depends on verifiable completion.
+
+## Architecture Overview
+
+### Settlement Flow
+
+```mermaid
+flowchart TD
+  A["Requester creates open task"] --> B["Provider accepts task"]
+  B --> C["Requester funds escrow"]
+  C --> D["Provider submits proof"]
+  D --> E["Requester verifies proof"]
+  E --> F["Requester releases payment"]
+  F --> G["Receipt generated"]
+```
+
+### System Architecture
+
+```mermaid
+flowchart LR
+  UI["Next.js Frontend"] --> API["API Routes"]
+  API --> Engine["Settlement Engine"]
+  Engine --> Store["Persistence Layer"]
+  Engine --> Arc["Arc Testnet Escrow"]
+  API --> Blob["Proof File Storage"]
+  API --> X402["x402 Authorization"]
+  X402 --> Circle["Circle USDC"]
+  Store --> Receipts["Receipts and Evidence"]
+```
+
+ProoVra separates workflow presentation from settlement execution. The frontend guides users through task creation, provider acceptance, proof submission, verification, and release. The settlement engine maintains state transitions and records evidence. Arc Testnet validates escrow and release behavior. Circle and x402 provide the payment authorization path used by the protected proof service.
+
+## Core Capabilities
+
+| Capability | Current implementation |
+| --- | --- |
+| Requester registration | Requester agents can be registered from a connected wallet. |
+| Provider identity | Provider participants attach when a different wallet accepts an open task. |
+| Professional roles | Agents can be described with roles such as Developer, Researcher, Writer, Designer, Security, or Agent Operator. |
+| Settlement Profiles | Frontend presets for common proof-gated workflows. |
+| Open task creation | Requesters create open tasks without pre-selecting a provider. |
+| Task acceptance | A provider wallet can accept an open task if it is different from the requester wallet. |
+| Escrow funding | Requesters fund escrow through wallet-signed Arc Testnet transactions. |
+| Proof submission | Providers can submit text, URLs, proof hashes, and uploaded files. |
+| Verification | Requesters explicitly approve submitted proof before release. |
+| Payment release | Funds release from escrow after verification. |
+| Receipts | Receipts include settlement metadata, proof references, and transaction evidence. |
+| Persistence | App records are persisted through local storage in development and Vercel storage in deployment. |
+| x402 | Protected proof endpoint supports payment-gated authorization behavior. |
+
+## Settlement Profiles
+
+Settlement Profiles are frontend workflow presets. They prefill task creation fields such as suggested title, proof requirements, verification checklist, requester role, provider role, and receipt label.
+
+Profiles do not change backend settlement logic. Every profile uses the same deterministic settlement engine:
+
+```text
+Requester creates task
+Provider accepts task
+Requester funds escrow
+Provider submits proof
+Requester verifies proof
+Requester releases payment
+Receipt is generated
+```
+
+| Profile | Description |
+| --- | --- |
+| Open-source Contribution | Maintainers pay contributors for verified repository work such as PRs, commits, documentation, or issue fixes. |
+| Creator Campaign | Coordinators release campaign payment after content links, screenshots, or delivery evidence are reviewed. |
+| AI Agent Task | Agent operators submit output, run logs, result links, or execution evidence for review. |
+| Research Review | Researchers submit findings, source links, citations, or written summaries. |
+| Security Audit | Auditors submit issue lists, reproduction steps, review notes, or audit reports. |
+| Documentation Bounty | Writers submit documentation PRs, documents, screenshots, or committed updates. |
+| Community Moderation | Moderators submit action logs, summaries, screenshots, or moderation evidence. |
+
+## End-to-End Example
+
+### Open-source contributor settlement
+
+1. A maintainer connects a wallet and registers a requester agent.
+2. The maintainer selects the Open-source Contribution profile.
+3. ProoVra pre-fills a task such as `Fix documentation issue and submit PR proof`.
+4. The maintainer creates the open task with a USDC amount and proof requirement.
+5. A contributor connects a different wallet and accepts the task.
+6. The maintainer funds escrow on Arc Testnet.
+7. The contributor submits proof, such as a GitHub PR link, commit hash, screenshot, document, or summary.
+8. The maintainer reviews the proof and verifies completion.
+9. The maintainer releases payment from escrow.
+10. ProoVra generates a receipt containing the task ID, requester, provider, proof evidence, verification timestamp, escrow transaction, release transaction, and settlement metadata.
+
+## Arc Testnet Settlement
+
+ProoVra has completed controlled end-to-end settlement validation on Arc Testnet using the deployed `SettlementEscrow` contract.
 
 - Contract: `0x38D7C4cC9C108D127923651ced41bdb123Dbc611`
 - Network: Arc Testnet
 - Chain ID: `5042002`
 - Token: `0x3600000000000000000000000000000000000000`
 - Verified flow: Approve -> CreateEscrow -> ReleaseAfterProof
-- Escrow ID: `2`
-- Status: `Released`
-- Amount: `0.000001 USDC`
-- Requester: `0xabeC63339443cE52Be54FB12833C41B311Ea168c`
-- Provider: `0x1047d233336BE340eFD867dB02C8a466bCFaA357`
-- Proof hash: `0xc90acad44222873dcaa4bec0f988ab5f07ca93e741ef794436a7bd0cfb32dce8`
-- Result: Proof successfully triggered payment release.
+- Example escrow ID: `2`
+- Example amount: `0.000001 USDC`
+- Example result: proof successfully triggered payment release.
 
 Verification transactions:
 
@@ -59,60 +151,46 @@ Verification transactions:
 
 Full evidence report: [`ARC_TESTNET_VERIFICATION_REPORT.md`](ARC_TESTNET_VERIFICATION_REPORT.md)
 
-## Live x402 Verification
+## Circle USDC and x402
 
-ProoVra includes an x402-compatible protected proof endpoint and a Circle CLI x402 provider. The endpoint fails closed for unpaid or invalid requests, and a paid Circle CLI request has been executed through Circle Gateway on Arc Testnet/local verification infrastructure.
+ProoVra includes an x402-compatible protected proof endpoint and Circle CLI x402 provider boundaries. The endpoint fails closed for unpaid or invalid requests, and Circle Gateway/x402 authorization has been verified in the project evidence.
 
 - Protected endpoint: `GET /api/x402/protected-proof`
 - Authorization route: `POST /api/x402/authorize`
-- Provider: `circle-cli-x402`
+- Provider mode: `circle-cli-x402`
 - Scheme: `GatewayWalletBatched`
-- Circle wallet: `0x1047d233336be340efd867db02c8a466bcfaa357`
-- Gateway payer: `0x0746cd1b1186ff3594c791959180784c12b98b79`
-- Price: `0.000001 USDC`
 - Network: Arc Testnet, `eip155:5042002`
 - Asset: `0x3600000000000000000000000000000000000000`
-- Gateway deposit approval: `0x72c281d9a92469f5602649774fb7bb9fb099869c1263b6f5ecd50b87ae7342a6`
-- Gateway deposit: `0xa0145d205be45363444a8e640df656efd69b5fed0cb95c3c1cbd849048e2c6bd`
-- x402 payment ID: `circle-cli-x402:x402-proof-service:a998a577850d50cc`
-- x402 settlement transaction: `367c87b1-d1d7-45bb-90d8-048cf943a1c8`
-- Verified behavior: unpaid request returns `402`; fake `x-payment: test` returns `402`; paid Circle CLI request returns `200` with protected proof data and persisted payment evidence.
+- Verified behavior: unpaid requests return `402`; authorized paid requests return protected proof data and persisted payment evidence.
 
-## Lepton Tooling
+## Repository Structure
 
-### ARC CLI
-
-Install:
-
-```bash
-uv tool install git+https://github.com/the-canteen-dev/ARC-cli
+```text
+proovra/
+  contracts/                     Solidity escrow contract
+  deployments/                   Arc Testnet deployment metadata
+  public/                        Static assets and brand files
+  script/                        Foundry deployment scripts
+  scripts/                       Local utility and verification scripts
+  src/
+    app/                         Next.js routes and API endpoints
+      (app)/                     Product pages
+      api/                       API routes for agents, tasks, settlements, receipts, proof files, x402
+    components/                  Shared UI components
+    hooks/                       Client hooks
+    integrations/                Arc, Circle, x402, and provider integrations
+    lib/                         Persistence, formatting, wallet validation, shared types
+    providers/                   Settlement and wallet provider boundaries
+    services/                    Task, agent, escrow, verification, receipt, and settlement services
+  ARC_DEPLOYMENT.md              Arc deployment notes
+  ARC_TESTNET_SETUP.md           Arc Testnet setup guide
+  ARC_TESTNET_VERIFICATION_REPORT.md
+  DEMO.md                        Demo flow notes
+  README.md
+  SUBMISSION.md
 ```
 
-The ARC CLI is the Lepton setup path for Arc testnet access, documentation, repositories, and developer context. ProoVra uses the official Arc Testnet configuration and deployed settlement contract for the verified proof-to-payment flow.
-
-### Circle CLI
-
-Install:
-
-```bash
-npm install -g @circle-fin/cli
-```
-
-The Circle CLI supports agent wallets, x402-compatible payments, and USDC workflows. ProoVra includes Circle CLI provider boundaries and verified Circle Gateway x402 authorization evidence.
-
-## Repository Status
-
-- Public GitHub URL: [https://github.com/ArmaniBanks/proovra](https://github.com/ArmaniBanks/proovra)
-- Live Product URL: [https://proovra.vercel.app](https://proovra.vercel.app)
-- Demo Video URL: pending recording
-- Arc Testnet verification: complete
-- Circle x402 verification: complete
-- Vercel KV persistence: complete
-- Vercel Blob proof uploads: complete
-- Settlement receipts: complete
-- Under 3-minute demo video: pending recording
-
-## Development
+## Local Development
 
 Install dependencies:
 
@@ -126,9 +204,13 @@ Run the development server:
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+Open:
 
-Run quality checks before handing off changes:
+```text
+http://localhost:3000
+```
+
+Run quality checks before handing off code changes:
 
 ```bash
 npx tsc --noEmit
@@ -136,6 +218,22 @@ npm run lint
 npm run build
 npm run lepton:tooling
 ```
+
+### Arc CLI
+
+```bash
+uv tool install git+https://github.com/the-canteen-dev/ARC-cli
+```
+
+The Arc CLI is used for Arc testnet setup context, documentation, and developer workflow alignment.
+
+### Circle CLI
+
+```bash
+npm install -g @circle-fin/cli
+```
+
+The Circle CLI supports Circle wallet and x402-related workflows used by ProoVra's payment authorization path.
 
 ## Vercel Persistence
 
@@ -152,14 +250,48 @@ Optional:
 - `PROOVRA_KV_DB_KEY` to override the Vercel KV key used for the app database. Default: `proovra:database:v3`.
 - `PROOVRA_BLOB_ACCESS` can be set to `public` only when the connected Blob store allows public uploads. Private Blob stores work by default.
 
-Local development keeps using `data/proovra-db.json` and `public/uploads/proofs` when those production storage variables are not set.
+Local development uses `data/proovra-db.json` and local proof upload paths when production storage variables are not set.
 
-## App Routes
+## Design Principles
 
-- `/`
-- `/dashboard`
-- `/agents`
-- `/tasks`
-- `/settlement`
-- `/receipts`
-- `/demo`
+- Payment follows verified proof: funds should move only after submitted evidence is reviewed and accepted.
+- Deterministic settlement: task, escrow, proof, verification, release, and receipt states should be explicit.
+- Reusable settlement primitives: the same engine should support many verified-work workflows.
+- Infrastructure over workflows: profiles guide task creation, but settlement behavior remains consistent.
+- Role separation: the requester funds and approves; the provider performs work and submits proof.
+- Evidence persistence: receipts should preserve proof references and transaction metadata.
+
+## Roadmap
+
+Near-term roadmap:
+
+- Improve production observability for settlement and proof upload failures.
+- Add clearer reviewer-facing receipt export formats.
+- Expand profile-specific task templates while preserving the same settlement engine.
+- Continue hardening Arc Testnet release diagnostics.
+- Improve evidence access controls for private proof files.
+
+Not currently claimed:
+
+- Mainnet settlement.
+- Production financial guarantees.
+- Fully audited smart contract security.
+
+## Project Status
+
+- Public GitHub URL: [https://github.com/ArmaniBanks/proovra](https://github.com/ArmaniBanks/proovra)
+- Live Product URL: [https://proovra.vercel.app](https://proovra.vercel.app)
+- Arc Testnet validation: complete
+- Circle x402 verification: documented
+- Vercel KV persistence: implemented
+- Vercel Blob proof uploads: implemented
+- Settlement receipts: implemented
+- Demo video: pending recording
+
+## README Changes
+
+- Rewrote the README as infrastructure-grade project documentation.
+- Added badges, table of contents, problem statement, architecture diagrams, feature table, repository tree, design principles, and near-term roadmap.
+- Clarified Settlement Profiles as frontend presets over the same settlement engine.
+- Added the open-source contributor settlement example as the first use case.
+- Kept Arc Testnet validation clear without claiming mainnet or production financial guarantees.
