@@ -6,7 +6,12 @@ export type AgentRole =
   | "data"
   | "voice"
   | "security"
-  | "orchestrator";
+  | "orchestrator"
+  | "developer"
+  | "designer"
+  | "qa-tester"
+  | "community-moderator"
+  | "agent-operator";
 
 export type AgentType = "provider" | "requester" | "both";
 export type PricingModel =
