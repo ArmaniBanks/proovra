@@ -99,6 +99,148 @@ const filterTabs: { key: FilterTab; label: string }[] = [
   { key: "failed", label: "Failed" },
 ];
 
+type SettlementProfile = {
+  id: string;
+  name: string;
+  description: string;
+  targetUsers: string;
+  requesterRole: string;
+  providerRole: string;
+  suggestedTaskTitle: string;
+  proofRequirements: string;
+  verificationChecklist: string[];
+  receiptLabel: string;
+};
+
+const settlementProfiles: SettlementProfile[] = [
+  {
+    id: "open-source-contribution",
+    name: "Open-source Contribution",
+    description: "Pay contributors for verified repo work after proof is reviewed.",
+    targetUsers: "Maintainers and contributors.",
+    requesterRole: "Maintainer",
+    providerRole: "Developer",
+    suggestedTaskTitle: "Fix documentation issue and submit PR proof",
+    proofRequirements:
+      "Submit GitHub PR link, commit hash, or merged documentation proof before payment release.",
+    verificationChecklist: [
+      "PR or commit link provided",
+      "Work matches task requirement",
+      "Maintainer has reviewed proof",
+      "Payment release approved",
+    ],
+    receiptLabel: "Open-source contributor settlement",
+  },
+  {
+    id: "creator-campaign",
+    name: "Creator Campaign",
+    description: "Release campaign payments after deliverables are submitted and approved.",
+    targetUsers: "Creators, brands, and campaign coordinators.",
+    requesterRole: "Campaign Lead",
+    providerRole: "Content Creator",
+    suggestedTaskTitle: "Publish campaign content and submit proof",
+    proofRequirements:
+      "Submit published content link, screenshot, analytics capture, or delivery evidence.",
+    verificationChecklist: [
+      "Published content link provided",
+      "Deliverable matches campaign brief",
+      "Requester reviewed submitted proof",
+      "Payment release approved",
+    ],
+    receiptLabel: "Creator campaign settlement",
+  },
+  {
+    id: "ai-agent-task",
+    name: "AI Agent Task",
+    description: "Settle machine or agent work after output is reviewed.",
+    targetUsers: "Agent operators and workflow orchestrators.",
+    requesterRole: "Orchestrator",
+    providerRole: "Agent Operator",
+    suggestedTaskTitle: "Complete agent workflow and submit output proof",
+    proofRequirements:
+      "Submit output summary, run log, result link, or execution evidence for review.",
+    verificationChecklist: [
+      "Output evidence provided",
+      "Result matches requested workflow",
+      "Requester reviewed proof",
+      "Payment release approved",
+    ],
+    receiptLabel: "AI agent task settlement",
+  },
+  {
+    id: "research-review",
+    name: "Research Review",
+    description: "Pay researchers after findings and sources are checked.",
+    targetUsers: "Research leads, analysts, and reviewers.",
+    requesterRole: "Research Lead",
+    providerRole: "Researcher",
+    suggestedTaskTitle: "Prepare research summary with source proof",
+    proofRequirements:
+      "Submit research summary, source links, citations, or review notes before payment release.",
+    verificationChecklist: [
+      "Research evidence provided",
+      "Sources are relevant and accessible",
+      "Findings match the task scope",
+      "Payment release approved",
+    ],
+    receiptLabel: "Research review settlement",
+  },
+  {
+    id: "security-audit",
+    name: "Security Audit",
+    description: "Release audit payments after findings or review proof are accepted.",
+    targetUsers: "Security teams, auditors, and protocol maintainers.",
+    requesterRole: "Security Lead",
+    providerRole: "Security",
+    suggestedTaskTitle: "Review smart contract risk and submit audit proof",
+    proofRequirements:
+      "Submit audit notes, issue list, reproduction steps, or final review document.",
+    verificationChecklist: [
+      "Audit evidence provided",
+      "Findings match requested scope",
+      "Requester reviewed the report",
+      "Payment release approved",
+    ],
+    receiptLabel: "Security audit settlement",
+  },
+  {
+    id: "documentation-bounty",
+    name: "Documentation Bounty",
+    description: "Settle documentation work after submitted updates are reviewed.",
+    targetUsers: "Project maintainers, writers, and documentation contributors.",
+    requesterRole: "Maintainer",
+    providerRole: "Writer",
+    suggestedTaskTitle: "Improve product documentation and submit proof",
+    proofRequirements:
+      "Submit document link, PR link, screenshot, or committed documentation update.",
+    verificationChecklist: [
+      "Documentation proof provided",
+      "Updates match requested scope",
+      "Requester reviewed the changes",
+      "Payment release approved",
+    ],
+    receiptLabel: "Documentation bounty settlement",
+  },
+  {
+    id: "community-moderation",
+    name: "Community Moderation",
+    description: "Pay moderators after completion evidence is reviewed.",
+    targetUsers: "Communities, moderators, and operations teams.",
+    requesterRole: "Community Lead",
+    providerRole: "Community Moderator",
+    suggestedTaskTitle: "Complete moderation review and submit proof",
+    proofRequirements:
+      "Submit moderation log, summary, screenshot, or completed action report.",
+    verificationChecklist: [
+      "Moderation evidence provided",
+      "Actions match task requirement",
+      "Requester reviewed proof",
+      "Payment release approved",
+    ],
+    receiptLabel: "Community moderation settlement",
+  },
+];
+
 function filterTasks(tasks: Task[], filter: FilterTab): Task[] {
   switch (filter) {
     case "open":
@@ -477,6 +619,7 @@ export default function TasksPage() {
   const [agentError, setAgentError] = useState("");
   const [localTasksById, setLocalTasksById] = useState<Record<string, Task>>({});
   const [localAgentsById, setLocalAgentsById] = useState<Record<string, Agent>>({});
+  const [selectedProfileId, setSelectedProfileId] = useState("");
   const [taskForm, setTaskForm] = useState<{
     title: string;
     requesterId: string;
@@ -521,6 +664,9 @@ export default function TasksPage() {
   const failedTasks = counts.failed;
   const selectedRequesterId = taskForm.requesterId || requesters[0]?.id || "";
   const selectedRequester = agentsById[selectedRequesterId];
+  const selectedProfile = settlementProfiles.find(
+    (profile) => profile.id === selectedProfileId
+  );
   const connectedRequesterMatchesSelection = areSameWallet(
     selectedRequester?.walletAddress,
     walletAddress
@@ -609,6 +755,7 @@ export default function TasksPage() {
         pricingModel: "per-task",
         verificationCriteria: "",
       });
+      setSelectedProfileId("");
       setActiveFilter("open");
       if (payload.task?.id) {
         router.replace(`/tasks?task=${encodeURIComponent(payload.task.id)}`);
@@ -774,6 +921,67 @@ export default function TasksPage() {
             <span className="rounded-full border border-zinc-800 bg-zinc-950/60 px-3 py-1 text-xs text-zinc-500">
               Connect wallet to create tasks
             </span>
+          )}
+        </div>
+
+        <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
+          <label
+            htmlFor="settlement-profile"
+            className="text-xs font-semibold uppercase tracking-wider text-zinc-400"
+          >
+            Select Settlement Profile
+          </label>
+          <select
+            id="settlement-profile"
+            value={selectedProfileId}
+            onChange={(event) => {
+              const profile = settlementProfiles.find(
+                (candidate) => candidate.id === event.target.value
+              );
+              setSelectedProfileId(event.target.value);
+              if (!profile) return;
+              setTaskForm((form) => ({
+                ...form,
+                title: profile.suggestedTaskTitle,
+                verificationCriteria: `${profile.proofRequirements} Verification checklist: ${profile.verificationChecklist.join("; ")}.`,
+              }));
+            }}
+            className="mt-2 w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-amber-500/50"
+          >
+            <option value="">Generic proof-gated settlement</option>
+            {settlementProfiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.name}
+              </option>
+            ))}
+          </select>
+          {selectedProfile && (
+            <div className="mt-3 grid gap-3 text-xs text-zinc-400 lg:grid-cols-3">
+              <div>
+                <p className="font-medium text-zinc-300">{selectedProfile.description}</p>
+                <p className="mt-1 text-zinc-500">{selectedProfile.targetUsers}</p>
+              </div>
+              <div className="space-y-1">
+                <p>
+                  <span className="text-zinc-500">Requester:</span>{" "}
+                  {selectedProfile.requesterRole}
+                </p>
+                <p>
+                  <span className="text-zinc-500">Provider:</span>{" "}
+                  {selectedProfile.providerRole}
+                </p>
+                <p>
+                  <span className="text-zinc-500">Receipt:</span>{" "}
+                  {selectedProfile.receiptLabel}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-zinc-300">Verification checklist</p>
+                <p className="mt-1 leading-5 text-zinc-500">
+                  {selectedProfile.verificationChecklist.join(" · ")}
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
