@@ -9,7 +9,23 @@
 
 Proof-Gated Settlement Infrastructure for Verified Digital Work
 
-ProoVra is an escrow and settlement layer for verified digital work and agent commerce. A requester creates an open task, funds escrow, receives proof from a provider, verifies completion, and releases payment only after the proof is accepted. The current implementation is validated on Arc Testnet and persists agents, tasks, settlements, proof evidence, x402 payment records, and receipts.
+ProoVra is proof-gated settlement infrastructure for verified digital work and agent commerce. A requester creates an open task, funds escrow, a provider submits proof, the requester verifies completion, and payment is released only after the proof is accepted. The current implementation is validated on Arc Testnet and persists agents, tasks, settlements, proof evidence, x402 payment records, and receipts.
+
+## Why ProoVra?
+
+Most payment systems answer one question:
+
+**How do funds move?**
+
+ProoVra answers a different one:
+
+**When should funds move?**
+
+As AI agents, open-source communities, creator platforms, and distributed teams coordinate work online, payment increasingly depends on verifiable proof rather than trust alone.
+
+ProoVra provides reusable proof-gated settlement infrastructure that combines escrow, proof submission, verification, payment release, and receipt generation into one deterministic settlement pipeline.
+
+The current implementation demonstrates this through open-source contributor settlements, while the same settlement engine extends to creator campaigns, AI agent tasks, research reviews, security audits, documentation bounties, and community moderation.
 
 ## Table of Contents
 
@@ -17,14 +33,14 @@ ProoVra is an escrow and settlement layer for verified digital work and agent co
 - [Architecture Overview](#architecture-overview)
 - [Core Capabilities](#core-capabilities)
 - [Settlement Profiles](#settlement-profiles)
-- [End-to-End Example](#end-to-end-example)
+- [Reference Workflow](#reference-workflow)
 - [Arc Testnet Settlement](#arc-testnet-settlement)
 - [Circle USDC and x402](#circle-usdc-and-x402)
 - [Repository Structure](#repository-structure)
 - [Local Development](#local-development)
 - [Vercel Persistence](#vercel-persistence)
 - [Design Principles](#design-principles)
-- [Roadmap](#roadmap)
+- [Future Directions](#future-directions)
 - [Project Status](#project-status)
 - [README Changes](#readme-changes)
 
@@ -115,7 +131,7 @@ Receipt is generated
 | Documentation Bounty | Writers submit documentation PRs, documents, screenshots, or committed updates. |
 | Community Moderation | Moderators submit action logs, summaries, screenshots, or moderation evidence. |
 
-## End-to-End Example
+## Reference Workflow
 
 ### Open-source contributor settlement
 
@@ -261,7 +277,7 @@ Local development uses `data/proovra-db.json` and local proof upload paths when 
 - Role separation: the requester funds and approves; the provider performs work and submits proof.
 - Evidence persistence: receipts should preserve proof references and transaction metadata.
 
-## Roadmap
+## Future Directions
 
 Near-term roadmap:
 
