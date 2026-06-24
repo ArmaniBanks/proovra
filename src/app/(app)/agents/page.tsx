@@ -61,6 +61,26 @@ function typeBadge(type: Agent["type"]) {
   return map[type];
 }
 
+const roleOptions: { value: AgentRole; label: string }[] = [
+  { value: "orchestrator", label: "Orchestrator" },
+  { value: "developer", label: "Developer" },
+  { value: "research", label: "Researcher" },
+  { value: "writer", label: "Writer" },
+  { value: "editor", label: "Editor" },
+  { value: "designer", label: "Designer" },
+  { value: "qa-tester", label: "QA Tester" },
+  { value: "publisher", label: "Content Creator" },
+  { value: "data", label: "Data Analyst" },
+  { value: "voice", label: "Voice Specialist" },
+  { value: "community-moderator", label: "Community Moderator" },
+  { value: "security", label: "Security" },
+  { value: "agent-operator", label: "Agent Operator" },
+];
+
+const roleLabels = Object.fromEntries(
+  roleOptions.map((role) => [role.value, role.label])
+) as Record<AgentRole, string>;
+
 // ── Page ───────────────────────────────────────────────────
 
 export default function AgentsPage() {
@@ -196,7 +216,7 @@ export default function AgentsPage() {
             Agent Registry
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Registered agents from persisted records
+            Register professional service agents for proof-based task settlement.
           </p>
         </div>
 
@@ -215,7 +235,7 @@ export default function AgentsPage() {
           <div>
             <h2 className="text-sm font-semibold text-zinc-100">Register Agent</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              Create requester or provider agents backed by persisted records.
+              Create requester or provider agents that participate in proof-based settlements.
             </p>
           </div>
           {!walletAddress && (
@@ -250,14 +270,11 @@ export default function AgentsPage() {
             }
             className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-amber-500/50"
           >
-            <option value="orchestrator">Orchestrator</option>
-            <option value="research">Research</option>
-            <option value="writer">Writer</option>
-            <option value="editor">Editor</option>
-            <option value="publisher">Publisher</option>
-            <option value="data">Data</option>
-            <option value="voice">Voice</option>
-            <option value="security">Security</option>
+            {roleOptions.map((role) => (
+              <option key={role.value} value={role.value}>
+                {role.label}
+              </option>
+            ))}
           </select>
           <input
             value={agentForm.description}
@@ -386,8 +403,8 @@ function AgentCard({ agent }: { agent: Agent }) {
           {/* Badges */}
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {/* Role pill */}
-            <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium capitalize text-zinc-400 ring-1 ring-zinc-700/40">
-              {agent.role}
+            <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400 ring-1 ring-zinc-700/40">
+              {roleLabels[agent.role] ?? agent.role}
             </span>
             {/* Type pill */}
             <span
