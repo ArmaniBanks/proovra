@@ -109,6 +109,7 @@ export default function DashboardPage() {
           </span>
         </div>
       </div>
+
     );
   }
 
@@ -183,6 +184,14 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Primary Stats Grid ──────────────────────────────── */}
+      <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5">
+        <h2 className="text-sm font-semibold text-zinc-100">Settlement Profiles</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">
+          Use the same ProoVra settlement engine across open-source bounties,
+          creator campaigns, research reviews, audits, and agent tasks.
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {primaryStats.map((stat, i) => {
           const Icon = stat.icon;
