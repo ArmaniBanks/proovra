@@ -1,10 +1,22 @@
 "use client";
 
-import type { SVGProps } from "react";
+import type { ReactNode, SVGProps } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
-import { Receipt as ReceiptIcon, ShieldCheck, Download, ExternalLink } from "lucide-react";
+import {
+  ArrowDown,
+  CheckCircle2,
+  Copy,
+  Download,
+  ExternalLink,
+  FileText,
+  Link2,
+  Receipt as ReceiptIcon,
+  Share2,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react";
 import type { Agent, Receipt, Task } from "@/lib/mock-data";
 import { getProofFileUrl } from "@/lib/proof-file-url";
 import { formatUSDC, formatTimestamp, truncateAddress } from "@/lib/utils";
@@ -184,6 +196,32 @@ export default function ReceiptsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function copyToClipboard(value?: string) {
+    if (!value) return;
+    void navigator.clipboard?.writeText(value);
+  }
+
+  function copyReceiptLink(receiptId: string) {
+    copyToClipboard(`${window.location.origin}/receipts?receipt=${encodeURIComponent(receiptId)}`);
+  }
+
+  async function shareReceipt(receipt: Receipt) {
+    const url = `${window.location.origin}/receipts?receipt=${encodeURIComponent(receipt.id)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `ProoVra settlement receipt ${receipt.id}`,
+          text: `Settlement receipt for ${receipt.settlementId}`,
+          url,
+        });
+        return;
+      } catch {
+        // Fall back to copying when the native share sheet is cancelled or unavailable.
+      }
+    }
+    copyToClipboard(url);
+  }
+
   return (
     <div className="space-y-8 animate-fade-in pb-12">
       {/* Header */}
@@ -266,182 +304,18 @@ export default function ReceiptsPage() {
 
               {/* Expanded Receipt Detail */}
               {isExpanded && (
-                <div className="border-t border-zinc-800/50 bg-[#0c0c0f] p-8">
-                  <div className="max-w-2xl mx-auto bg-zinc-950 border border-zinc-800 rounded p-8 shadow-2xl relative overflow-hidden">
-                    
-                    {/* Background seal */}
-                    <div className="absolute right-6 top-6 pointer-events-none opacity-[0.04]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/proovra-logo.png"
-                        alt=""
-                        className="block h-16 w-16 object-contain"
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-start mb-10 border-b border-zinc-800/50 pb-6">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border border-amber-500/20 bg-black">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src="/proovra-logo.png"
-                            alt="ProoVra"
-                            className="block h-5 w-5 object-contain"
-                          />
-                        </div>
-                        <span className="font-semibold text-lg tracking-tight">ProoVra</span>
-                      </div>
-                      <div className="text-right">
-                        <h2 className="text-zinc-500 uppercase tracking-widest text-xs font-semibold mb-1">Settlement Receipt</h2>
-                        <div className="font-mono text-amber-500 text-lg">{receipt.id}</div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-end">
-                        <div>
-                          <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Settlement Amount</div>
-                          <div className="font-mono text-3xl text-white">{formatUSDC(receipt.amount)}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Date</div>
-                          <div className="font-mono text-sm text-zinc-300">{formatTimestamp(receipt.createdAt)}</div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-6 bg-zinc-900/50 p-4 rounded border border-zinc-800/50">
-                        <div>
-                          <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">From (Requester)</div>
-                          <div className="font-medium text-zinc-300">{requester?.name}</div>
-                          <div className="font-mono text-xs text-zinc-500 mt-1">{truncateAddress(requester?.walletAddress || "")}</div>
-                        </div>
-                        <div>
-                          <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">To (Provider)</div>
-                          <div className="font-medium text-zinc-300">{provider?.name}</div>
-                          <div className="font-mono text-xs text-zinc-500 mt-1">{truncateAddress(provider?.walletAddress || "")}</div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 pt-4">
-                        <div className="flex justify-between items-center text-sm border-b border-zinc-800/50 pb-2">
-                          <span className="text-zinc-500">Task Reference</span>
-                          <span className="text-zinc-300">{task?.title}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm border-b border-zinc-800/50 pb-2">
-                          <span className="text-zinc-500">Network</span>
-                          <span className="text-zinc-300">Arc Testnet</span>
-                        </div>
-                        <div className="flex justify-between gap-4 text-sm border-b border-zinc-800/50 pb-2">
-                          <span className="text-zinc-500">Payment Recipient</span>
-                          <span className="font-mono text-xs text-zinc-300 break-all text-right">
-                            {provider?.walletAddress}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm border-b border-zinc-800/50 pb-2">
-                          <span className="text-zinc-500">Block Number</span>
-                          <span className="font-mono text-zinc-300">{receipt.blockNumber}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm border-b border-zinc-800/50 pb-2">
-                          <span className="text-zinc-500">Settlement Time</span>
-                          <span className="font-mono text-emerald-400">{Math.round(receipt.settlementTime)}ms</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm border-b border-zinc-800/50 pb-2">
-                          <span className="text-zinc-500">Proof Verified</span>
-                          <span className="font-mono text-zinc-300">
-                            {receipt.verificationTimestamp
-                              ? formatTimestamp(receipt.verificationTimestamp)
-                              : "Not recorded"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="pt-2">
-                        <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Proof Hash</div>
-                        <div className="font-mono text-xs text-zinc-400 bg-zinc-900 p-2 rounded border border-zinc-800 break-all">
-                          {receipt.proofHash}
-                        </div>
-                      </div>
-
-                      {(receipt.proofUrl || receipt.proofText) && (
-                        <div>
-                          <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Proof Reference</div>
-                          <div className="font-mono text-xs text-zinc-400 bg-zinc-900 p-2 rounded border border-zinc-800 break-all">
-                            {receipt.proofUrl || receipt.proofText}
-                          </div>
-                        </div>
-                      )}
-
-                      {receipt.proofFile && (
-                        <div>
-                          <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Uploaded Proof File</div>
-                          <div className="space-y-1 font-mono text-xs text-zinc-400 bg-zinc-900 p-2 rounded border border-zinc-800 break-all">
-                            <a
-                              href={getProofFileUrl(receipt.proofFile)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-sans font-medium text-amber-400 hover:text-amber-300"
-                            >
-                              {receipt.proofFile.fileName}
-                            </a>
-                            <div>{receipt.proofFile.fileType}</div>
-                            <div>{receipt.proofFile.fileSize} bytes</div>
-                            <div>Uploaded {formatTimestamp(receipt.proofFile.uploadedAt)}</div>
-                            <div>{proofFileUrl}</div>
-                            {receipt.proofFile.fileHash && <div>{receipt.proofFile.fileHash}</div>}
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Escrow Transaction Hash</div>
-                        <div className="font-mono text-xs text-zinc-400 bg-zinc-900 p-2 rounded border border-zinc-800 break-all flex justify-between items-start gap-2">
-                          <span>{receipt.escrowTxHash ?? "Not recorded"}</span>
-                          {receipt.escrowExplorerLink && (
-                            <a
-                              href={receipt.escrowExplorerLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="h-4 w-4 text-zinc-500 flex-shrink-0 hover:text-amber-500 cursor-pointer" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-zinc-500 text-xs uppercase tracking-wider mb-1">Release Transaction Hash</div>
-                        <div className="font-mono text-xs text-zinc-400 bg-zinc-900 p-2 rounded border border-zinc-800 break-all flex justify-between items-start gap-2">
-                          <span>{receipt.releaseTxHash ?? receipt.arcTxHash}</span>
-                          {(receipt.releaseExplorerLink ?? receipt.explorerLink) && (
-                            <a
-                              href={receipt.releaseExplorerLink ?? receipt.explorerLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="h-4 w-4 text-zinc-500 flex-shrink-0 hover:text-amber-500 cursor-pointer" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-
-                    <div className="mt-8 pt-6 border-t border-zinc-800/50 flex justify-between items-center">
-                      <div className="flex items-center gap-2 text-emerald-500">
-                        <ShieldCheck className="h-5 w-5" />
-                        <span className="text-sm font-medium">Cryptographically Verified</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => downloadReceipt(receipt, task, requester, provider)}
-                        className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors bg-zinc-900 hover:bg-zinc-800 px-3 py-1.5 rounded border border-zinc-800"
-                      >
-                        <Download className="h-4 w-4" />
-                        Download
-                      </button>
-                    </div>
-
-                  </div>
+                <div className="border-t border-zinc-800/50 bg-[#0c0c0f] p-4 sm:p-6 lg:p-8">
+                  <ReceiptDetail
+                    receipt={receipt}
+                    task={task}
+                    requester={requester}
+                    provider={provider}
+                    proofFileUrl={proofFileUrl}
+                    onCopy={copyToClipboard}
+                    onCopyLink={copyReceiptLink}
+                    onDownload={downloadReceipt}
+                    onShare={shareReceipt}
+                  />
                 </div>
               )}
             </div>
@@ -449,6 +323,324 @@ export default function ReceiptsPage() {
         })}
       </div>
     </div>
+  );
+}
+
+function ReceiptDetail({
+  receipt,
+  task,
+  requester,
+  provider,
+  proofFileUrl,
+  onCopy,
+  onCopyLink,
+  onDownload,
+  onShare,
+}: {
+  receipt: Receipt;
+  task?: Task;
+  requester?: Agent;
+  provider?: Agent;
+  proofFileUrl: string;
+  onCopy: (value?: string) => void;
+  onCopyLink: (receiptId: string) => void;
+  onDownload: (receipt: Receipt, task?: Task, requester?: Agent, provider?: Agent) => void;
+  onShare: (receipt: Receipt) => void;
+}) {
+  const settlementTimestamp = receipt.settlementTimestamp ?? receipt.createdAt;
+  const releaseHash = receipt.releaseTxHash ?? receipt.arcTxHash;
+  const releaseLink = receipt.releaseExplorerLink ?? receipt.explorerLink;
+
+  return (
+    <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+      <section className="border-b border-zinc-800 bg-zinc-950 p-5 sm:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />
+              Payment Released
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                Settlement Completed
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                Proof was submitted, reviewed, and accepted before payment release on Arc Testnet.
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg border border-amber-500/20 bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/proovra-logo.png" alt="ProoVra" className="block h-7 w-7 object-contain" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-white">ProoVra</div>
+              <div className="text-xs text-zinc-500">Settlement Receipt</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 p-5 sm:p-7">
+        <section className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
+          <SectionTitle icon={<ReceiptIcon className="h-4 w-4 text-amber-500" />}>Settlement Summary</SectionTitle>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SummaryItem label="Settlement ID" value={receipt.settlementId} mono />
+            <SummaryItem label="Task Title" value={task?.title ?? "Untitled task"} />
+            <SummaryItem label="Amount" value={formatUSDC(receipt.amount)} strong />
+            <SummaryItem label="Currency" value="USDC" />
+            <SummaryItem label="Settlement Status" value="Released" status />
+            <SummaryItem label="Timestamp" value={formatTimestamp(settlementTimestamp)} mono />
+          </div>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <ParticipantCard title="Requester" name={requester?.name ?? "Requester Agent"} walletAddress={requester?.walletAddress} />
+          <ParticipantCard title="Provider" name={provider?.name ?? "Provider Agent"} walletAddress={provider?.walletAddress} />
+        </section>
+
+        <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <SectionTitle icon={<ShieldCheck className="h-4 w-4 text-emerald-400" />}>Proof Verification</SectionTitle>
+              <p className="mt-1 text-xs text-zinc-500">Proof was accepted before payment.</p>
+            </div>
+            <div className="w-fit rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+              Verified
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <VerificationState label="Proof Submitted" />
+            <VerificationState label="Proof Verified" />
+            <VerificationState
+              label="Verification Timestamp"
+              detail={receipt.verificationTimestamp ? formatTimestamp(receipt.verificationTimestamp) : "Not recorded"}
+            />
+          </div>
+          <div className="mt-5 grid gap-3">
+            <EvidenceBlock label="Proof Hash" value={receipt.proofHash} onCopy={() => onCopy(receipt.proofHash)} />
+            {(receipt.proofUrl || receipt.proofText) && (
+              <EvidenceBlock
+                label={receipt.proofUrl ? "Proof URL" : "Proof Text"}
+                value={receipt.proofUrl || receipt.proofText || ""}
+                href={receipt.proofUrl}
+                onCopy={() => onCopy(receipt.proofUrl || receipt.proofText)}
+              />
+            )}
+            {receipt.proofFile && (
+              <EvidenceBlock
+                label="Uploaded Proof File"
+                value={`${receipt.proofFile.fileName} - ${receipt.proofFile.fileType} - ${receipt.proofFile.fileSize} bytes`}
+                detail={[
+                  `Uploaded ${formatTimestamp(receipt.proofFile.uploadedAt)}`,
+                  receipt.proofFile.fileHash ? `File hash ${receipt.proofFile.fileHash}` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" - ")}
+                href={proofFileUrl}
+                onCopy={() => onCopy(proofFileUrl)}
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 sm:p-5">
+          <SectionTitle icon={<Wallet className="h-4 w-4 text-amber-500" />}>Transaction Evidence</SectionTitle>
+          <div className="mt-4 grid gap-3">
+            <EvidenceBlock
+              label="Escrow Transaction Hash"
+              value={receipt.escrowTxHash ?? "Not recorded"}
+              href={receipt.escrowExplorerLink}
+              onCopy={() => onCopy(receipt.escrowTxHash)}
+            />
+            <EvidenceBlock
+              label="Release Transaction Hash"
+              value={releaseHash}
+              href={releaseLink}
+              onCopy={() => onCopy(releaseHash)}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SummaryItem label="Network" value="Arc Testnet" />
+              <SummaryItem label="Settlement Timestamp" value={formatTimestamp(settlementTimestamp)} mono />
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 sm:p-5">
+          <SectionTitle icon={<FileText className="h-4 w-4 text-amber-500" />}>Settlement Timeline</SectionTitle>
+          <div className="mt-5 grid gap-3 md:grid-cols-7">
+            {[
+              "Task Created",
+              "Provider Accepted",
+              "Escrow Funded",
+              "Proof Submitted",
+              "Proof Verified",
+              "Payment Released",
+              "Receipt Generated",
+            ].map((item, index, items) => (
+              <TimelineItem key={item} label={item} isLast={index === items.length - 1} />
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 sm:p-5">
+          <SectionTitle icon={<ShieldCheck className="h-4 w-4 text-emerald-400" />}>Receipt Integrity</SectionTitle>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryItem label="Receipt ID" value={receipt.id} mono />
+            <SummaryItem label="Generated" value={formatTimestamp(receipt.createdAt)} mono />
+            <SummaryItem label="Settlement Reference" value={receipt.settlementId} mono />
+            <SummaryItem label="Network" value="Arc Testnet" />
+          </div>
+        </section>
+
+        <div className="flex flex-col gap-3 border-t border-zinc-800 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <ShieldCheck className="h-5 w-5" />
+            <span className="text-sm font-medium">Permanent verified settlement record</span>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <ActionButton onClick={() => onDownload(receipt, task, requester, provider)}>
+              <Download className="h-4 w-4" />
+              Download Receipt
+            </ActionButton>
+            <ActionButton onClick={() => onCopyLink(receipt.id)}>
+              <Link2 className="h-4 w-4" />
+              Copy Receipt Link
+            </ActionButton>
+            <ActionButton onClick={() => void onShare(receipt)}>
+              <Share2 className="h-4 w-4" />
+              Share Receipt
+            </ActionButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-sm font-medium text-white">
+      {icon}
+      {children}
+    </div>
+  );
+}
+
+function SummaryItem({
+  label,
+  value,
+  mono = false,
+  strong = false,
+  status = false,
+}: {
+  label: string;
+  value: ReactNode;
+  mono?: boolean;
+  strong?: boolean;
+  status?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">{label}</div>
+      <div
+        className={[
+          "mt-1 break-words text-sm text-zinc-200",
+          mono ? "font-mono" : "",
+          strong ? "font-mono text-xl font-semibold text-white" : "",
+          status ? "w-fit rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-300" : "",
+        ].join(" ")}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ParticipantCard({ title, name, walletAddress }: { title: string; name: string; walletAddress?: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">{title}</div>
+      <div className="mt-2 text-base font-semibold text-white">{name}</div>
+      <div className="mt-2 break-all font-mono text-xs text-zinc-500">{walletAddress ?? "Not recorded"}</div>
+      {walletAddress && <div className="mt-1 font-mono text-xs text-zinc-400">{truncateAddress(walletAddress)}</div>}
+    </div>
+  );
+}
+
+function VerificationState({ label, detail }: { label: string; detail?: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3">
+      <div className="flex items-center gap-2 text-sm text-zinc-200">
+        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+        {label}
+      </div>
+      {detail && <div className="mt-2 font-mono text-xs text-zinc-500">{detail}</div>}
+    </div>
+  );
+}
+
+function EvidenceBlock({
+  label,
+  value,
+  detail,
+  href,
+  onCopy,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  href?: string;
+  onCopy?: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">{label}</div>
+        <div className="flex items-center gap-2">
+          {href && (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-amber-400">
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
+          {onCopy && (
+            <button type="button" onClick={onCopy} className="text-zinc-500 hover:text-white" aria-label={`Copy ${label}`}>
+              <Copy className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="max-w-full overflow-hidden break-all font-mono text-xs leading-5 text-zinc-300">{value}</div>
+      {detail && <div className="mt-2 break-all text-xs leading-5 text-zinc-500">{detail}</div>}
+    </div>
+  );
+}
+
+function TimelineItem({ label, isLast }: { label: string; isLast: boolean }) {
+  return (
+    <div className="flex items-center gap-3 md:flex-col md:items-start">
+      <div className="flex items-center gap-3 md:w-full">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+        </div>
+        {!isLast && <ArrowDown className="h-4 w-4 text-zinc-700 md:hidden" />}
+        {!isLast && <div className="hidden h-px flex-1 bg-zinc-800 md:block" />}
+      </div>
+      <div className="text-sm font-medium text-zinc-200">{label}</div>
+    </div>
+  );
+}
+
+function ActionButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
+    >
+      {children}
+    </button>
   );
 }
 
