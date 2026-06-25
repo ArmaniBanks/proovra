@@ -373,9 +373,11 @@ function ReceiptDetail({
   const settlementTimestamp = receipt.settlementTimestamp ?? receipt.createdAt;
   const releaseHash = receipt.releaseTxHash ?? receipt.arcTxHash;
   const releaseLink = receipt.releaseExplorerLink ?? receipt.explorerLink;
-  const [actionFeedback, setActionFeedback] = useState<"copy" | "share" | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<
+    "copy" | "copy-failed" | "shared" | "link-copied" | "share-failed" | null
+  >(null);
 
-  function showActionFeedback(type: "copy" | "share") {
+  function showActionFeedback(type: NonNullable<typeof actionFeedback>) {
     setActionFeedback(type);
     window.setTimeout(() => setActionFeedback(null), 2000);
   }
@@ -535,20 +537,32 @@ function ReceiptDetail({
             </ActionButton>
             <ActionButton
               onClick={async () => {
-                if (await onCopyLink(receipt.id)) showActionFeedback("copy");
+                showActionFeedback((await onCopyLink(receipt.id)) ? "copy" : "copy-failed");
               }}
             >
               <Link2 className="h-4 w-4" />
-              {actionFeedback === "copy" ? "Copied" : "Copy Receipt Link"}
+              {actionFeedback === "copy"
+                ? "Copied"
+                : actionFeedback === "copy-failed"
+                  ? "Copy Failed"
+                  : "Copy Receipt Link"}
             </ActionButton>
             <ActionButton
               onClick={async () => {
                 const result = await onShare(receipt);
-                if (result) showActionFeedback("share");
+                showActionFeedback(
+                  result === "shared" ? "shared" : result === "copied" ? "link-copied" : "share-failed"
+                );
               }}
             >
               <Share2 className="h-4 w-4" />
-              {actionFeedback === "share" ? "Shared / Copied" : "Share Receipt"}
+              {actionFeedback === "shared"
+                ? "Shared"
+                : actionFeedback === "link-copied"
+                  ? "Link Copied"
+                  : actionFeedback === "share-failed"
+                    ? "Copy Failed"
+                    : "Share Receipt"}
             </ActionButton>
           </div>
         </div>
@@ -630,8 +644,17 @@ function EvidenceBlock({
   value: string;
   detail?: string;
   href?: string;
-  onCopy?: () => void | Promise<void | boolean>;
+  onCopy?: () => Promise<boolean>;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopyClick(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    if (!(await onCopy?.())) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -651,14 +674,18 @@ function EvidenceBlock({
           {onCopy && (
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                void onCopy();
-              }}
-              className="text-zinc-500 hover:text-white"
+              onClick={(event) => void handleCopyClick(event)}
+              className="inline-flex items-center gap-1 text-zinc-500 hover:text-white"
               aria-label={`Copy ${label}`}
             >
-              <Copy className="h-4 w-4" />
+              {copied ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <span className="text-xs text-emerald-400">Copied</span>
+                </>
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
             </button>
           )}
         </div>
