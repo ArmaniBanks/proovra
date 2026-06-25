@@ -228,23 +228,6 @@ export default function ReceiptsPage() {
     return copyToClipboard(`${window.location.origin}/receipts?receipt=${encodeURIComponent(receiptId)}`);
   }
 
-  async function shareReceipt(receipt: Receipt): Promise<"shared" | "copied" | null> {
-    const url = `${window.location.origin}/receipts?receipt=${encodeURIComponent(receipt.id)}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `ProoVra settlement receipt ${receipt.id}`,
-          text: `Settlement receipt for ${receipt.settlementId}`,
-          url,
-        });
-        return "shared";
-      } catch {
-        // Fall back to copying when the native share sheet is cancelled or unavailable.
-      }
-    }
-    return (await copyToClipboard(url)) ? "copied" : null;
-  }
-
   return (
     <div className="space-y-8 animate-fade-in pb-12">
       {/* Header */}
@@ -337,7 +320,6 @@ export default function ReceiptsPage() {
                     onCopy={copyToClipboard}
                     onCopyLink={copyReceiptLink}
                     onDownload={downloadReceipt}
-                    onShare={shareReceipt}
                   />
                 </div>
               )}
@@ -358,7 +340,6 @@ function ReceiptDetail({
   onCopy,
   onCopyLink,
   onDownload,
-  onShare,
 }: {
   receipt: Receipt;
   task?: Task;
@@ -368,19 +349,64 @@ function ReceiptDetail({
   onCopy: (value?: string) => Promise<boolean>;
   onCopyLink: (receiptId: string) => Promise<boolean>;
   onDownload: (receipt: Receipt, task?: Task, requester?: Agent, provider?: Agent) => void;
-  onShare: (receipt: Receipt) => Promise<"shared" | "copied" | null>;
 }) {
   const settlementTimestamp = receipt.settlementTimestamp ?? receipt.createdAt;
   const releaseHash = receipt.releaseTxHash ?? receipt.arcTxHash;
   const releaseLink = receipt.releaseExplorerLink ?? receipt.explorerLink;
-  const [actionFeedback, setActionFeedback] = useState<
-    "copy" | "copy-failed" | "shared" | "link-copied" | "share-failed" | null
-  >(null);
+  const shareText = "ProoVra settlement receipt: verified proof authorized payment.";
+  const receiptUrl = `${window.location.origin}/receipts?receipt=${encodeURIComponent(receipt.id)}`;
+  const shareMenuRef = useRef<HTMLDivElement | null>(null);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<"copy" | "copy-failed" | "link-copied" | null>(null);
 
   function showActionFeedback(type: NonNullable<typeof actionFeedback>) {
     setActionFeedback(type);
     window.setTimeout(() => setActionFeedback(null), 2000);
   }
+
+  useEffect(() => {
+    if (!shareMenuOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!shareMenuRef.current?.contains(event.target as Node)) {
+        setShareMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [shareMenuOpen]);
+
+  function openShareTarget(url: string) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    setShareMenuOpen(false);
+  }
+
+  async function copyShareLink() {
+    showActionFeedback((await onCopy(receiptUrl)) ? "link-copied" : "copy-failed");
+    setShareMenuOpen(false);
+  }
+
+  const shareTargets = [
+    {
+      label: "WhatsApp",
+      url: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${receiptUrl}`)}`,
+    },
+    {
+      label: "Telegram",
+      url: `https://t.me/share/url?url=${encodeURIComponent(receiptUrl)}&text=${encodeURIComponent(shareText)}`,
+    },
+    {
+      label: "X / Twitter",
+      url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(receiptUrl)}`,
+    },
+    {
+      label: "Email",
+      url: `mailto:?subject=${encodeURIComponent("ProoVra settlement receipt")}&body=${encodeURIComponent(
+        `${shareText}\n\n${receiptUrl}`
+      )}`,
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-[820px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
@@ -547,23 +573,38 @@ function ReceiptDetail({
                   ? "Copy Failed"
                   : "Copy Receipt Link"}
             </ActionButton>
-            <ActionButton
-              onClick={async () => {
-                const result = await onShare(receipt);
-                showActionFeedback(
-                  result === "shared" ? "shared" : result === "copied" ? "link-copied" : "share-failed"
-                );
-              }}
-            >
-              <Share2 className="h-4 w-4" />
-              {actionFeedback === "shared"
-                ? "Shared"
-                : actionFeedback === "link-copied"
-                  ? "Link Copied"
-                  : actionFeedback === "share-failed"
-                    ? "Copy Failed"
-                    : "Share Receipt"}
-            </ActionButton>
+            <div ref={shareMenuRef} className="relative">
+              <ActionButton onClick={() => setShareMenuOpen((open) => !open)}>
+                <Share2 className="h-4 w-4" />
+                {actionFeedback === "link-copied" ? "Link Copied" : "Share Receipt"}
+              </ActionButton>
+              {shareMenuOpen && (
+                <div
+                  className="absolute bottom-full right-0 z-20 mb-2 w-48 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 p-1 shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {shareTargets.map((target) => (
+                    <button
+                      key={target.label}
+                      type="button"
+                      onClick={() => openShareTarget(target.url)}
+                      className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                    >
+                      {target.label}
+                      <ExternalLink className="h-3.5 w-3.5 text-zinc-600" />
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => void copyShareLink()}
+                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                  >
+                    Copy Link
+                    <Copy className="h-3.5 w-3.5 text-zinc-600" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
