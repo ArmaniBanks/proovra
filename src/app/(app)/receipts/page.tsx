@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode, SVGProps } from "react";
+import type { MouseEvent, ReactNode, SVGProps } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
@@ -196,16 +196,39 @@ export default function ReceiptsPage() {
     URL.revokeObjectURL(url);
   }
 
-  function copyToClipboard(value?: string) {
-    if (!value) return;
-    void navigator.clipboard?.writeText(value);
+  async function copyToClipboard(value?: string): Promise<boolean> {
+    if (!value) return false;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch {
+      // Fall through to textarea fallback below.
+    }
+
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand("copy");
+      textarea.remove();
+      return copied;
+    } catch {
+      return false;
+    }
   }
 
   function copyReceiptLink(receiptId: string) {
-    copyToClipboard(`${window.location.origin}/receipts?receipt=${encodeURIComponent(receiptId)}`);
+    return copyToClipboard(`${window.location.origin}/receipts?receipt=${encodeURIComponent(receiptId)}`);
   }
 
-  async function shareReceipt(receipt: Receipt) {
+  async function shareReceipt(receipt: Receipt): Promise<"shared" | "copied" | null> {
     const url = `${window.location.origin}/receipts?receipt=${encodeURIComponent(receipt.id)}`;
     if (navigator.share) {
       try {
@@ -214,12 +237,12 @@ export default function ReceiptsPage() {
           text: `Settlement receipt for ${receipt.settlementId}`,
           url,
         });
-        return;
+        return "shared";
       } catch {
         // Fall back to copying when the native share sheet is cancelled or unavailable.
       }
     }
-    copyToClipboard(url);
+    return (await copyToClipboard(url)) ? "copied" : null;
   }
 
   return (
@@ -342,17 +365,23 @@ function ReceiptDetail({
   requester?: Agent;
   provider?: Agent;
   proofFileUrl: string;
-  onCopy: (value?: string) => void;
-  onCopyLink: (receiptId: string) => void;
+  onCopy: (value?: string) => Promise<boolean>;
+  onCopyLink: (receiptId: string) => Promise<boolean>;
   onDownload: (receipt: Receipt, task?: Task, requester?: Agent, provider?: Agent) => void;
-  onShare: (receipt: Receipt) => void;
+  onShare: (receipt: Receipt) => Promise<"shared" | "copied" | null>;
 }) {
   const settlementTimestamp = receipt.settlementTimestamp ?? receipt.createdAt;
   const releaseHash = receipt.releaseTxHash ?? receipt.arcTxHash;
   const releaseLink = receipt.releaseExplorerLink ?? receipt.explorerLink;
+  const [actionFeedback, setActionFeedback] = useState<"copy" | "share" | null>(null);
+
+  function showActionFeedback(type: "copy" | "share") {
+    setActionFeedback(type);
+    window.setTimeout(() => setActionFeedback(null), 2000);
+  }
 
   return (
-    <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+    <div className="mx-auto max-w-[820px] overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl">
       <section className="border-b border-zinc-800 bg-zinc-950 p-5 sm:p-7">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4">
@@ -504,13 +533,22 @@ function ReceiptDetail({
               <Download className="h-4 w-4" />
               Download Receipt
             </ActionButton>
-            <ActionButton onClick={() => onCopyLink(receipt.id)}>
+            <ActionButton
+              onClick={async () => {
+                if (await onCopyLink(receipt.id)) showActionFeedback("copy");
+              }}
+            >
               <Link2 className="h-4 w-4" />
-              Copy Receipt Link
+              {actionFeedback === "copy" ? "Copied" : "Copy Receipt Link"}
             </ActionButton>
-            <ActionButton onClick={() => void onShare(receipt)}>
+            <ActionButton
+              onClick={async () => {
+                const result = await onShare(receipt);
+                if (result) showActionFeedback("share");
+              }}
+            >
               <Share2 className="h-4 w-4" />
-              Share Receipt
+              {actionFeedback === "share" ? "Shared / Copied" : "Share Receipt"}
             </ActionButton>
           </div>
         </div>
@@ -592,7 +630,7 @@ function EvidenceBlock({
   value: string;
   detail?: string;
   href?: string;
-  onCopy?: () => void;
+  onCopy?: () => void | Promise<void | boolean>;
 }) {
   return (
     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
@@ -600,12 +638,26 @@ function EvidenceBlock({
         <div className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">{label}</div>
         <div className="flex items-center gap-2">
           {href && (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-amber-400">
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              className="text-zinc-500 hover:text-amber-400"
+            >
               <ExternalLink className="h-4 w-4" />
             </a>
           )}
           {onCopy && (
-            <button type="button" onClick={onCopy} className="text-zinc-500 hover:text-white" aria-label={`Copy ${label}`}>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void onCopy();
+              }}
+              className="text-zinc-500 hover:text-white"
+              aria-label={`Copy ${label}`}
+            >
               <Copy className="h-4 w-4" />
             </button>
           )}
@@ -632,11 +684,16 @@ function TimelineItem({ label, isLast }: { label: string; isLast: boolean }) {
   );
 }
 
-function ActionButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+function ActionButton({ children, onClick }: { children: ReactNode; onClick: () => void | Promise<void> }) {
+  function handleClick(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    void onClick();
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
       className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
     >
       {children}
