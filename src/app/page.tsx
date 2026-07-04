@@ -209,26 +209,26 @@ export default function LandingPage() {
   const flowSteps = [
     {
       icon: CircleDollarSign,
-      label: "Open Task",
-      sub: "Requester posts",
+      label: "Issue / Task",
+      sub: "Existing workflow",
       color: "amber",
     },
     {
       icon: PackageCheck,
-      label: "Accept",
-      sub: "Provider joins",
+      label: "Contributor",
+      sub: "Accepts work",
       color: "amber",
     },
     {
       icon: Lock,
-      label: "Fund",
-      sub: "Escrow locked",
+      label: "Escrow",
+      sub: "USDC funded",
       color: "amber",
     },
     {
       icon: FileCheck,
-      label: "Proof",
-      sub: "Submitted",
+      label: "PR / Proof",
+      sub: "Evidence submitted",
       color: "amber",
     },
     {
@@ -246,26 +246,26 @@ export default function LandingPage() {
     {
       num: 1,
       icon: CircleDollarSign,
-      title: "Create Task",
-      desc: "Buyer agent posts a task with USDC escrow. Funds are locked until delivery is verified.",
+      title: "Bring Existing Work",
+      desc: "A maintainer imports a public GitHub issue and creates a payout task from the validated work source.",
     },
     {
       num: 2,
       icon: PackageCheck,
-      title: "Deliver Work",
-      desc: "Provider agent completes the task and submits cryptographic proof of delivery.",
+      title: "Submit Proof",
+      desc: "A contributor accepts the task and submits a PR, commit hash, file, link, or other completion evidence.",
     },
     {
       num: 3,
       icon: FileCheck,
-      title: "Verify Proof",
-      desc: "ProoVra verifies the delivery against the original task criteria automatically.",
+      title: "Maintainer Verifies",
+      desc: "The maintainer reviews the submitted evidence and explicitly approves completed work.",
     },
     {
       num: 4,
       icon: Banknote,
-      title: "Settle Payment",
-      desc: "Funds release automatically to the provider. An immutable settlement receipt is generated.",
+      title: "Release and Record",
+      desc: "ProoVra releases USDC to the contributor and generates a persistent settlement receipt.",
     },
   ];
 
@@ -275,8 +275,8 @@ export default function LandingPage() {
   const featureCards = [
     {
       icon: FileCheck,
-      title: "Agent Task Requests",
-      desc: "Requesters create open proof-gated tasks that provider wallets can accept.",
+      title: "Existing Workflow Sidecar",
+      desc: "Add proof-gated payouts to work that already begins in GitHub or another digital community.",
     },
     {
       icon: Lock,
@@ -285,23 +285,23 @@ export default function LandingPage() {
     },
     {
       icon: Zap,
-      title: "Provider Proof Submission",
-      desc: "Providers submit proof text, links, hashes, or uploaded files before payment can move.",
+      title: "Contributor Proof",
+      desc: "Contributors submit PR links, commit hashes, text, URLs, or uploaded files before payment can move.",
     },
     {
       icon: Star,
-      title: "Requester Approval",
-      desc: "The requester reviews submitted proof and explicitly approves completion before release.",
+      title: "Maintainer Approval",
+      desc: "The maintainer reviews submitted proof and explicitly approves completion before release.",
     },
     {
       icon: Receipt,
-      title: "Verified Receipts",
-      desc: "Receipts are generated from actual settlement records, proof evidence, and Arc transaction hashes.",
+      title: "Settlement Receipts",
+      desc: "Receipts preserve the work reference, proof evidence, approval, participants, and Arc transaction hashes.",
     },
     {
       icon: Layers,
-      title: "Proof-Gated Settlement",
-      desc: "Payment moves only after proof is submitted, reviewed, and approved.",
+      title: "Portable Settlement Core",
+      desc: "The same proof-gated engine can sit beside contributor programs, campaigns, audits, and agent task networks.",
     },
   ];
 
@@ -414,7 +414,7 @@ export default function LandingPage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-8 rounded-full border border-amber-500/20 bg-amber-500/5 text-xs font-medium text-amber-400">
             <ProoVraMark size={18} />
-            Agent Settlement Protocol
+            Settlement Sidecar for Digital Work
           </div>
 
           {/* Headline */}
@@ -425,8 +425,8 @@ export default function LandingPage() {
 
           {/* Subheadline */}
           <p className="mt-6 text-lg sm:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-            Trust and settlement infrastructure for agent economies on{" "}
-            <span className="text-white font-medium">Arc</span>.
+            Proof-gated settlement for work that already lives in GitHub and other digital communities.
+            ProoVra adds USDC escrow, maintainer approval, and receipts without replacing the workflow.
           </p>
 
           {/* CTAs */}
@@ -560,11 +560,11 @@ export default function LandingPage() {
               How It Works
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Four steps to{" "}
-              <span className="text-gradient-brand">trustless settlement</span>
+              From existing work to{" "}
+              <span className="text-gradient-brand">verified payout</span>
             </h2>
             <p className="mt-4 text-zinc-500 max-w-xl mx-auto">
-              From task creation to verified payment — fully automated, no intermediaries.
+              Imported GitHub issue, contributor proof, maintainer approval, USDC release, and receipt.
             </p>
           </div>
 
@@ -613,10 +613,10 @@ export default function LandingPage() {
           {/* Header */}
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Why <span className="text-gradient-brand">ProoVra</span>?
+              Why a <span className="text-gradient-brand">settlement sidecar</span>?
             </h2>
             <p className="mt-4 text-zinc-500 max-w-lg mx-auto">
-              Agents shouldn&apos;t gamble on getting paid. Payment should be a guarantee.
+              The community, work, and proof already exist. ProoVra adds the missing approval-to-payment layer.
             </p>
           </div>
 
@@ -647,15 +647,15 @@ export default function LandingPage() {
               <ul className="space-y-3 text-sm text-zinc-400">
                 <li className="flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                  Agent pays upfront, work fails, funds lost
+                  Work is completed in one tool while payout is coordinated elsewhere
                 </li>
                 <li className="flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                  No verification of delivery quality
+                  Proof is scattered across PRs, commits, messages, and files
                 </li>
                 <li className="flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                  No audit trail, no receipts, no recourse
+                  Manual approval leaves no shared settlement record
                 </li>
               </ul>
 
@@ -691,15 +691,15 @@ export default function LandingPage() {
               <ul className="space-y-3 text-sm text-zinc-400">
                 <li className="flex items-start gap-2.5">
                   <BadgeCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                  USDC escrowed — funds never at risk
+                  USDC held in escrow until the maintainer approves completion
                 </li>
                 <li className="flex items-start gap-2.5">
                   <BadgeCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                  Cryptographic proof of delivery verified
+                  PR links, commit hashes, files, and other proof stay attached
                 </li>
                 <li className="flex items-start gap-2.5">
                   <BadgeCheck className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                  Immutable settlement receipt for every transaction
+                  Persistent settlement receipt records proof, approval, and payment
                 </li>
               </ul>
 
@@ -726,11 +726,11 @@ export default function LandingPage() {
               Features
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Infrastructure for the{" "}
-              <span className="text-gradient-brand">agent economy</span>
+              Settlement infrastructure for{" "}
+              <span className="text-gradient-brand">existing communities</span>
             </h2>
             <p className="mt-4 text-zinc-500 max-w-xl mx-auto">
-              Everything agents need to transact safely, from escrow to reputation.
+              Start with open-source contributor payouts, then extend the same engine to other verified digital work.
             </p>
           </div>
 
@@ -772,11 +772,11 @@ export default function LandingPage() {
           }`}
         >
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-            See settlement{" "}
-            <span className="text-gradient-brand">in action.</span>
+            Add settlement to{" "}
+            <span className="text-gradient-brand">work already happening.</span>
           </h2>
           <p className="mt-5 text-zinc-400 text-lg max-w-md mx-auto">
-            Explore real-time settlements, agent reputation, and verifiable receipts.
+            See how a task, contributor proof, maintainer approval, USDC release, and receipt fit together.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
