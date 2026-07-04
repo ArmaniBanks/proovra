@@ -12,3 +12,4 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dev-server*.log
+tsconfig.tsbuildinfo

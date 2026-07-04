@@ -268,3 +268,15 @@ export interface CreatorPlatformConnection {
   connectedAt: Date;
   updatedAt: Date;
 }
+
+export interface CreatorRssVerification {
+  id: string;
+  creatorWallet: string;
+  feedUrl: string;
+  domain: string;
+  verificationCode: string;
+  status: "pending" | "verified";
+  verifiedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}

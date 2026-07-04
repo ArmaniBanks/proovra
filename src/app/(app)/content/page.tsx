@@ -2,13 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Copy, ExternalLink, Loader2, Newspaper, Plus, Receipt, Wallet } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Newspaper,
+  Plus,
+  Receipt,
+  Rss,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useApi } from "@/hooks/useApi";
 import type {
   CreatorContent,
   CreatorContentAccess,
-  CreatorContentSource,
 } from "@/lib/mock-data";
 import { cn, formatUSDC, formatTimeAgo } from "@/lib/utils";
 import { hasPrivyConfig } from "@/lib/privy-config";
@@ -30,9 +40,37 @@ type ContentForm = {
   body: string;
   creatorName: string;
   creatorWallet: string;
-  source: CreatorContentSource;
-  sourceUrl: string;
   price: string;
+};
+
+type RssFeedItem = {
+  id: string;
+  title: string;
+  link: string;
+  publishedAt?: string;
+  excerpt: string;
+  body: string;
+};
+
+type RssVerification = {
+  id: string;
+  creatorWallet: string;
+  feedUrl: string;
+  domain: string;
+  verificationCode: string;
+  status: "pending" | "verified";
+  verifiedAt?: string;
+};
+
+type RssPrepareResponse = {
+  feed?: {
+    feedUrl: string;
+    domain: string;
+    title: string;
+    items: RssFeedItem[];
+  };
+  verification?: RssVerification;
+  error?: string;
 };
 
 const initialForm: ContentForm = {
@@ -42,8 +80,6 @@ const initialForm: ContentForm = {
     "This is creator-owned source material. Agents can read it after paying through ProoVra, then cite the receipt when they reuse the content.",
   creatorName: "ProoVra Creator",
   creatorWallet: "",
-  source: "manual",
-  sourceUrl: "",
   price: "0.000001",
 };
 
@@ -57,9 +93,26 @@ export default function CreatorContentPage() {
     useApi<CreatorContentResponse>("/api/creator-content");
   const [form, setForm] = useState<ContentForm>(initialForm);
   const [privyWalletAddress, setPrivyWalletAddress] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [copiedId, setCopiedId] = useState("");
+  const [rssFeedUrl, setRssFeedUrl] = useState("");
+  const [rssVerificationUrl, setRssVerificationUrl] = useState("");
+  const [rssFeed, setRssFeed] = useState<RssPrepareResponse["feed"] | null>(null);
+  const [rssVerification, setRssVerification] =
+    useState<RssVerification | null>(null);
+  const [rssSelectedItemId, setRssSelectedItemId] = useState("");
+  const [rssPrice, setRssPrice] = useState("0.000001");
+  const [rssPayoutWallet, setRssPayoutWallet] = useState("");
+  const [rssAction, setRssAction] = useState<
+    "idle" | "preparing" | "verifying" | "monetizing"
+  >("idle");
+  const [rssError, setRssError] = useState("");
+  const [rssSuccess, setRssSuccess] = useState("");
   const syncCreatorIdentity = useCallback(
     (identity: { email: string; walletAddress: string }) => {
       setPrivyWalletAddress(identity.walletAddress);
+      setRssPayoutWallet((current) => current || identity.walletAddress);
       setForm((current) => ({
         ...current,
         creatorName:
@@ -71,9 +124,6 @@ export default function CreatorContentPage() {
     },
     []
   );
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [copiedId, setCopiedId] = useState("");
 
   const contents = data?.contents ?? [];
   const accesses = data?.accesses ?? [];
@@ -101,7 +151,7 @@ export default function CreatorContentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          sourceUrl: form.sourceUrl.trim() || undefined,
+          source: "manual",
           price: Number(form.price),
         }),
       });
@@ -124,6 +174,98 @@ export default function CreatorContentPage() {
     await navigator.clipboard.writeText(accessUrl(contentId));
     setCopiedId(contentId);
     window.setTimeout(() => setCopiedId(""), 1400);
+  }
+
+  async function prepareRssImport() {
+    if (!rssFeedUrl.trim() || !form.creatorWallet.trim()) return;
+    setRssAction("preparing");
+    setRssError("");
+    setRssSuccess("");
+    try {
+      const response = await fetch("/api/integrations/rss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "prepare",
+          creatorWallet: form.creatorWallet,
+          feedUrl: rssFeedUrl,
+        }),
+      });
+      const payload = (await response.json()) as RssPrepareResponse;
+      if (!response.ok) throw new Error(payload.error ?? "RSS import failed");
+      setRssFeed(payload.feed ?? null);
+      setRssVerification(payload.verification ?? null);
+      setRssSelectedItemId(payload.feed?.items[0]?.id ?? "");
+      setRssPayoutWallet(form.creatorWallet);
+    } catch (error) {
+      setRssError(error instanceof Error ? error.message : "RSS import failed");
+    } finally {
+      setRssAction("idle");
+    }
+  }
+
+  async function verifyRssOwnership() {
+    if (!rssFeedUrl.trim() || !form.creatorWallet.trim()) return;
+    setRssAction("verifying");
+    setRssError("");
+    setRssSuccess("");
+    try {
+      const response = await fetch("/api/integrations/rss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "verify",
+          creatorWallet: form.creatorWallet,
+          feedUrl: rssFeedUrl,
+          verificationUrl: rssVerificationUrl.trim() || undefined,
+        }),
+      });
+      const payload = (await response.json()) as {
+        verification?: RssVerification;
+        error?: string;
+      };
+      if (!response.ok) throw new Error(payload.error ?? "RSS verification failed");
+      setRssVerification(payload.verification ?? null);
+      setRssSuccess("RSS ownership verified. You can now monetize selected feed items.");
+    } catch (error) {
+      setRssError(
+        error instanceof Error ? error.message : "RSS verification failed"
+      );
+    } finally {
+      setRssAction("idle");
+    }
+  }
+
+  async function monetizeRssItem() {
+    if (!rssFeed || !rssSelectedItemId || !rssPayoutWallet.trim()) return;
+    setRssAction("monetizing");
+    setRssError("");
+    setRssSuccess("");
+    try {
+      const response = await fetch("/api/integrations/rss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "monetize",
+          creatorWallet: form.creatorWallet,
+          creatorName: form.creatorName,
+          feedUrl: rssFeed.feedUrl,
+          itemId: rssSelectedItemId,
+          price: Number(rssPrice),
+          payoutWallet: rssPayoutWallet,
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "RSS monetization failed");
+      setRssSuccess("RSS item published as x402-gated creator content.");
+      void mutate(true);
+    } catch (error) {
+      setRssError(
+        error instanceof Error ? error.message : "RSS monetization failed"
+      );
+    } finally {
+      setRssAction("idle");
+    }
   }
 
   if (error) {
@@ -157,6 +299,214 @@ export default function CreatorContentPage() {
           <Metric label="Creators" value={summary?.activeCreators ?? 0} />
         </div>
       </div>
+
+      <section className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-300">
+              <Rss className="h-3.5 w-3.5" />
+              Verified RSS import
+            </div>
+            <h2 className="text-sm font-semibold text-zinc-100">
+              Import public RSS content you control
+            </h2>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-500">
+              Works with public RSS from WordPress, Ghost, Substack, Beehiiv,
+              Medium, and personal blogs. ProoVra fetches recent public items,
+              then requires a verification code on the feed/domain before any
+              item can be monetized.
+            </p>
+          </div>
+          {rssVerification && (
+            <span
+              className={`rounded-full border px-3 py-1 text-xs ${
+                rssVerification.status === "verified"
+                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                  : "border-amber-500/20 bg-amber-500/10 text-amber-300"
+              }`}
+            >
+              {rssVerification.status === "verified"
+                ? "Feed verified"
+                : "Verification pending"}
+            </span>
+          )}
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+          <input
+            value={rssFeedUrl}
+            onChange={(event) => {
+              setRssFeedUrl(event.target.value);
+              setRssFeed(null);
+              setRssVerification(null);
+              setRssSelectedItemId("");
+              setRssError("");
+              setRssSuccess("");
+            }}
+            placeholder="https://creator.example.com/rss.xml"
+            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+          />
+          <button
+            type="button"
+            onClick={prepareRssImport}
+            disabled={
+              !rssFeedUrl.trim() ||
+              !form.creatorWallet.trim() ||
+              rssAction === "preparing"
+            }
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+          >
+            {rssAction === "preparing" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            {rssAction === "preparing" ? "Fetching" : "Fetch feed"}
+          </button>
+        </div>
+        {!form.creatorWallet.trim() && (
+          <p className="mt-2 text-xs text-zinc-500">
+            Connect/login first so the verified feed is tied to your creator wallet.
+          </p>
+        )}
+
+        {rssVerification && (
+          <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+            <div className="mb-3 flex items-start gap-3">
+              <div className="rounded-lg bg-amber-500/10 p-2">
+                <ShieldCheck className="h-4 w-4 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-100">
+                  Prove ownership of {rssVerification.domain}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  Add this code to a new RSS item, your site homepage/meta tag,
+                  or a public page on the same domain. ProoVra must find it
+                  before monetization is enabled.
+                </p>
+              </div>
+            </div>
+            <code className="block overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-amber-300">
+              {rssVerification.verificationCode}
+            </code>
+            <div className="mt-3 grid gap-2 lg:grid-cols-[1fr_auto]">
+              <input
+                value={rssVerificationUrl}
+                onChange={(event) => setRssVerificationUrl(event.target.value)}
+                placeholder="Optional public verification page URL on same domain"
+                className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+              />
+              <button
+                type="button"
+                onClick={verifyRssOwnership}
+                disabled={rssAction === "verifying"}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-300 transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+              >
+                {rssAction === "verifying" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Verify ownership
+              </button>
+            </div>
+          </div>
+        )}
+
+        {rssFeed && (
+          <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/40">
+            <div className="border-b border-zinc-800 px-4 py-3">
+              <h3 className="text-sm font-semibold text-zinc-100">
+                Recent items from {rssFeed.title}
+              </h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                Only public items from the verified feed/domain can be monetized.
+              </p>
+            </div>
+            <div className="divide-y divide-zinc-800/60">
+              {rssFeed.items.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-zinc-500">
+                  No public same-domain items were found in this feed.
+                </div>
+              )}
+              {rssFeed.items.map((item) => {
+                const selected = item.id === rssSelectedItemId;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setRssSelectedItemId(item.id)}
+                    className={`block w-full px-4 py-4 text-left transition-colors ${
+                      selected ? "bg-amber-500/10" : "hover:bg-zinc-900/60"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-100">
+                          {item.title}
+                        </p>
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
+                          {item.excerpt || item.body}
+                        </p>
+                        <span className="mt-2 inline-flex text-xs text-amber-300">
+                          {item.link}
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-xs text-zinc-600">
+                        {item.publishedAt
+                          ? new Date(item.publishedAt).toLocaleDateString()
+                          : "No date"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {rssFeed && (
+          <div className="mt-4 grid gap-3 lg:grid-cols-[0.5fr_1fr_auto]">
+            <input
+              value={rssPrice}
+              onChange={(event) => setRssPrice(event.target.value)}
+              inputMode="decimal"
+              placeholder="0.000001"
+              className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+            />
+            <input
+              value={rssPayoutWallet}
+              onChange={(event) => setRssPayoutWallet(event.target.value)}
+              readOnly={Boolean(privyWalletAddress)}
+              placeholder="Payout wallet"
+              className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+            />
+            <button
+              type="button"
+              onClick={monetizeRssItem}
+              disabled={
+                !rssSelectedItemId ||
+                rssVerification?.status !== "verified" ||
+                rssAction === "monetizing"
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+            >
+              {rssAction === "monetizing" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Monetize selected RSS item
+            </button>
+          </div>
+        )}
+
+        {rssError && <p className="mt-3 text-xs text-red-400">{rssError}</p>}
+        {rssSuccess && (
+          <p className="mt-3 text-xs text-emerald-300">{rssSuccess}</p>
+        )}
+      </section>
 
       <form
         onSubmit={createContent}
@@ -200,30 +550,11 @@ export default function CreatorContentPage() {
           />
         </div>
 
-        <div className="mt-3 grid gap-3 lg:grid-cols-[0.7fr_1fr]">
-          <select
-            value={form.source}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                source: event.target.value as CreatorContentSource,
-              }))
-            }
-            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-amber-500/50"
-          >
-            <option value="manual">Manual</option>
-            <option value="rss">RSS</option>
-            <option value="ghost">Ghost</option>
-            <option value="docs">Docs</option>
-          </select>
-          <input
-            value={form.sourceUrl}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, sourceUrl: event.target.value }))
-            }
-            placeholder="Optional source URL"
-            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
-          />
+        <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2">
+          <p className="text-xs leading-5 text-zinc-500">
+            Manual content is for content written directly inside ProoVra. Use
+            the verified RSS importer above for feed/platform content.
+          </p>
         </div>
 
         <input

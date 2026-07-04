@@ -12,6 +12,7 @@ import {
   Mail,
   Newspaper,
   Receipt,
+  Rss,
   Send,
   ShieldCheck,
   Wallet,
@@ -374,6 +375,7 @@ function CreatorDashboard({
       </div>
 
       <CreatorPlatformPanel />
+      <RssVerificationStatus creatorWallet={walletAddress} />
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -422,6 +424,98 @@ function CreatorDashboard({
         )}
       </section>
     </div>
+  );
+}
+
+type RssVerificationRecord = {
+  id: string;
+  feedUrl: string;
+  domain: string;
+  verificationCode: string;
+  status: "pending" | "verified";
+  verifiedAt?: string;
+};
+
+function RssVerificationStatus({ creatorWallet }: { creatorWallet: string }) {
+  const [records, setRecords] = useState<RssVerificationRecord[]>([]);
+
+  useEffect(() => {
+    if (!creatorWallet) return;
+    let active = true;
+    async function loadVerifications() {
+      try {
+        const response = await fetch(
+          `/api/integrations/rss?creatorWallet=${encodeURIComponent(creatorWallet)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          verifications?: RssVerificationRecord[];
+        };
+        if (active) setRecords(payload.verifications ?? []);
+      } catch {
+        // Verification status is helpful, but the dashboard should stay usable.
+      }
+    }
+    const frame = window.requestAnimationFrame(() => {
+      void loadVerifications();
+    });
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [creatorWallet]);
+
+  return (
+    <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <div className="mb-2 inline-flex rounded-lg bg-amber-500/10 p-2">
+            <Rss className="h-4 w-4 text-amber-400" />
+          </div>
+          <h2 className="text-sm font-semibold text-zinc-100">
+            RSS Ownership Verification
+          </h2>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            Feeds must be verified before their posts can become paid x402
+            resources.
+          </p>
+        </div>
+        <Link href="/content" className="text-xs text-amber-300 hover:text-amber-200">
+          Import RSS
+        </Link>
+      </div>
+      {records.length === 0 ? (
+        <p className="text-sm text-zinc-500">
+          No RSS feeds verified yet. Import a public feed from the content page.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {records.map((record) => (
+            <div
+              key={record.id}
+              className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-zinc-200">
+                  {record.domain}
+                </p>
+                <p className="truncate text-xs text-zinc-600">{record.feedUrl}</p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full border px-2 py-1 text-[11px] ${
+                  record.status === "verified"
+                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                    : "border-amber-500/20 bg-amber-500/10 text-amber-300"
+                }`}
+              >
+                {record.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

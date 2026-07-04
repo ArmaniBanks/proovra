@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import type { CreatorContentSource } from "@/lib/mock-data";
 import { CreatorContentService } from "@/services/creator-content.service";
 
 type CreateContentBody = {
@@ -13,8 +12,6 @@ type CreateContentBody = {
   sourceUrl?: unknown;
   price?: unknown;
 };
-
-const sourceTypes: CreatorContentSource[] = ["manual", "rss", "ghost", "docs"];
 
 export async function GET() {
   await db.ready();
@@ -47,8 +44,14 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!sourceTypes.includes(body.source as CreatorContentSource)) {
-    return NextResponse.json({ error: "Invalid content source" }, { status: 400 });
+  if (body.source !== "manual") {
+    return NextResponse.json(
+      {
+        error:
+          "Direct content creation only supports manual content. Use a verified connector for RSS or platform imports.",
+      },
+      { status: 400 }
+    );
   }
 
   try {
@@ -58,8 +61,7 @@ export async function POST(req: Request) {
       body: body.body,
       creatorName: body.creatorName,
       creatorWallet: body.creatorWallet,
-      source: body.source as CreatorContentSource,
-      sourceUrl: typeof body.sourceUrl === "string" ? body.sourceUrl : undefined,
+      source: "manual",
       price: body.price,
     });
     await db.flush();
