@@ -7,40 +7,25 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38bdf8)
 
-Proof-Gated Settlement Infrastructure for Verified Digital Work
+Proof-Gated Settlement Sidecar for Verified Digital Work
 
-ProoVra is proof-gated settlement infrastructure for verified digital work and agent commerce. A requester creates an open task, funds escrow, a provider submits proof, the requester verifies completion, and payment is released only after the proof is accepted. The current implementation is validated on Arc Testnet and persists agents, tasks, settlements, proof evidence, x402 payment records, and receipts.
-
-## Why ProoVra?
-
-Most payment systems answer one question:
-
-**How do funds move?**
-
-ProoVra answers a different one:
-
-**When should funds move?**
-
-As AI agents, open-source communities, creator platforms, and distributed teams coordinate work online, payment increasingly depends on verifiable proof rather than trust alone.
-
-ProoVra provides reusable proof-gated settlement infrastructure that combines escrow, proof submission, verification, payment release, and receipt generation into one deterministic settlement pipeline.
-
-The current implementation demonstrates this through open-source contributor settlements, while the same settlement engine extends to creator campaigns, AI agent tasks, research reviews, security audits, documentation bounties, and community moderation.
+ProoVra adds proof-gated USDC settlement to digital work communities that already have tasks, contributors, and evidence. It does not require teams to bootstrap a new marketplace: a requester imports an existing public work item, a provider submits completion proof, the requester verifies it, and ProoVra releases payment and records the settlement. The current implementation is validated on Arc Testnet and persists agents, tasks, upstream work references, settlements, proof evidence, x402 payment records, and receipts.
 
 ## Table of Contents
 
 - [Problem Statement](#problem-statement)
+- [Positioning](#positioning)
 - [Architecture Overview](#architecture-overview)
 - [Core Capabilities](#core-capabilities)
 - [Settlement Profiles](#settlement-profiles)
-- [Reference Workflow](#reference-workflow)
+- [End-to-End Example](#end-to-end-example)
 - [Arc Testnet Settlement](#arc-testnet-settlement)
 - [Circle USDC and x402](#circle-usdc-and-x402)
 - [Repository Structure](#repository-structure)
 - [Local Development](#local-development)
 - [Vercel Persistence](#vercel-persistence)
 - [Design Principles](#design-principles)
-- [Future Directions](#future-directions)
+- [Roadmap](#roadmap)
 - [Project Status](#project-status)
 - [README Changes](#readme-changes)
 
@@ -56,6 +41,24 @@ ProoVra treats proof, verification, and settlement state as first-class infrastr
 - Receipts preserve the task, wallets, proof, transaction hashes, and settlement metadata.
 
 The result is a reusable proof-to-payment primitive for workflows where trust depends on verifiable completion.
+
+## Positioning
+
+ProoVra is a settlement sidecar, not a destination marketplace. It attaches payment to existing communities and workflows where distribution, identity, work, and proof already exist but payout still depends on manual approval.
+
+The initial attachment surface is open-source contributor work:
+
+```text
+GitHub issue or task
+-> contributor submits a PR or other proof
+-> maintainer verifies completion
+-> ProoVra releases USDC
+-> receipt is generated
+```
+
+GitHub remains the system where issues, pull requests, commits, and review history live. ProoVra reads a public issue through GitHub's API, persists its upstream identity with the payout task, and carries that source evidence into the settlement receipt. ProoVra supplies the adjacent escrow, approval, settlement, and receipt layer. This follows the distribution-first approach described in Canteen's [The Distribution Bootstrap for Payments Founders](https://thecanteenapp.com/analysis/2026/05/28/distribution-bootstrap-payments-founders.html): integrate with established communities and public workflow surfaces instead of asking users to migrate into a new marketplace.
+
+The same settlement core can later attach to other established work surfaces, including Dework, Questbook, creator campaign systems, service marketplaces, and AI agent task networks. These are expansion directions, not claims of current native integrations.
 
 ## Architecture Overview
 
@@ -85,7 +88,7 @@ flowchart LR
   Store --> Receipts["Receipts and Evidence"]
 ```
 
-ProoVra separates workflow presentation from settlement execution. The frontend guides users through task creation, provider acceptance, proof submission, verification, and release. The settlement engine maintains state transitions and records evidence. Arc Testnet validates escrow and release behavior. Circle and x402 provide the payment authorization path used by the protected proof service.
+ProoVra separates the upstream work surface from settlement execution. Existing communities can continue to coordinate tasks and review work in their current tools, while ProoVra handles provider acceptance, escrow, proof records, approval, release, and receipts. Arc Testnet validates escrow and release behavior. Circle and x402 provide the payment authorization path used by the protected proof service.
 
 ## Core Capabilities
 
@@ -95,7 +98,10 @@ ProoVra separates workflow presentation from settlement execution. The frontend 
 | Provider identity | Provider participants attach when a different wallet accepts an open task. |
 | Professional roles | Agents can be described with roles such as Developer, Researcher, Writer, Designer, Security, or Agent Operator. |
 | Settlement Profiles | Frontend presets for common proof-gated workflows. |
-| Open task creation | Requesters create open tasks without pre-selecting a provider. |
+| Existing-work settlement | Requesters create payout tasks for work originating in GitHub or another community surface. |
+| GitHub issue sidecar | Imports and validates public GitHub issues through the GitHub API without modifying the upstream repository. |
+| GitHub PR proof | Validates public pull requests, enforces repository matching, records merge/state metadata, and detects issue-closing references. |
+| Upstream receipt evidence | Persists the issue identity, repository, author, state, and URL with the task and final receipt. |
 | Task acceptance | A provider wallet can accept an open task if it is different from the requester wallet. |
 | Escrow funding | Requesters fund escrow through wallet-signed Arc Testnet transactions. |
 | Proof submission | Providers can submit text, URLs, proof hashes, and uploaded files. |
@@ -131,20 +137,20 @@ Receipt is generated
 | Documentation Bounty | Writers submit documentation PRs, documents, screenshots, or committed updates. |
 | Community Moderation | Moderators submit action logs, summaries, screenshots, or moderation evidence. |
 
-## Reference Workflow
+## End-to-End Example
 
 ### Open-source contributor settlement
 
-1. A maintainer connects a wallet and registers a requester agent.
-2. The maintainer selects the Open-source Contribution profile.
-3. ProoVra pre-fills a task such as `Fix documentation issue and submit PR proof`.
-4. The maintainer creates the open task with a USDC amount and proof requirement.
-5. A contributor connects a different wallet and accepts the task.
-6. The maintainer funds escrow on Arc Testnet.
-7. The contributor submits proof, such as a GitHub PR link, commit hash, screenshot, document, or summary.
-8. The maintainer reviews the proof and verifies completion.
-9. The maintainer releases payment from escrow.
-10. ProoVra generates a receipt containing the task ID, requester, provider, proof evidence, verification timestamp, escrow transaction, release transaction, and settlement metadata.
+1. A maintainer selects the Open-source Contribution profile and imports an existing public GitHub issue URL.
+2. The maintainer connects a wallet, registers a requester agent, and selects the Open-source Contribution profile.
+3. ProoVra validates the issue through GitHub's API and creates a payout task with a persisted upstream reference, USDC amount, and proof requirement.
+4. A contributor connects a different wallet and accepts the task.
+5. The maintainer funds escrow on Arc Testnet.
+6. The contributor completes the work in GitHub and submits a public pull request URL as proof.
+7. ProoVra validates the PR through GitHub's API, rejects repository mismatches, and records PR state, author, timestamps, merge status, and issue-reference evidence.
+8. The maintainer reviews the work in its original context and verifies completion in ProoVra.
+9. ProoVra releases payment from escrow.
+10. ProoVra generates a receipt linking the original issue, validated PR, requester, provider, proof evidence, verification timestamp, escrow transaction, release transaction, and settlement metadata.
 
 ## Arc Testnet Settlement
 
@@ -265,6 +271,7 @@ Optional:
 
 - `PROOVRA_KV_DB_KEY` to override the Vercel KV key used for the app database. Default: `proovra:database:v3`.
 - `PROOVRA_BLOB_ACCESS` can be set to `public` only when the connected Blob store allows public uploads. Private Blob stores work by default.
+- `GITHUB_TOKEN` increases GitHub API rate limits for the public issue adapter. Public issue import works without it.
 
 Local development uses `data/proovra-db.json` and local proof upload paths when production storage variables are not set.
 
@@ -274,16 +281,19 @@ Local development uses `data/proovra-db.json` and local proof upload paths when 
 - Deterministic settlement: task, escrow, proof, verification, release, and receipt states should be explicit.
 - Reusable settlement primitives: the same engine should support many verified-work workflows.
 - Infrastructure over workflows: profiles guide task creation, but settlement behavior remains consistent.
+- Distribution before destination: attach settlement to communities and tools people already use.
+- Sidecar architecture: preserve the upstream workflow and add payment through adjacent, portable infrastructure.
 - Role separation: the requester funds and approves; the provider performs work and submits proof.
 - Evidence persistence: receipts should preserve proof references and transaction metadata.
 
-## Future Directions
+## Roadmap
 
 Near-term roadmap:
 
 - Improve production observability for settlement and proof upload failures.
 - Add clearer reviewer-facing receipt export formats.
-- Expand profile-specific task templates while preserving the same settlement engine.
+- Extend the implemented public GitHub issue/PR adapter with optional authenticated private-repository support.
+- Explore additional adapters for established work surfaces such as Dework, Questbook, creator campaigns, marketplaces, and AI agent task networks.
 - Continue hardening Arc Testnet release diagnostics.
 - Improve evidence access controls for private proof files.
 
