@@ -180,6 +180,13 @@ function reviveAgent(agent: Agent): Agent {
 function reviveTask(task: Task): Task {
   return {
     ...task,
+    source: task.source
+      ? {
+          ...task.source,
+          importedAt: new Date(task.source.importedAt),
+          updatedAt: task.source.updatedAt ? new Date(task.source.updatedAt) : undefined,
+        }
+      : undefined,
     deadline: new Date(task.deadline),
     createdAt: new Date(task.createdAt),
     milestones: task.milestones?.map((milestone) => ({
@@ -192,6 +199,17 @@ function reviveTask(task: Task): Task {
 function reviveSettlement(settlement: Settlement): Settlement {
   return {
     ...settlement,
+    githubPullRequest: settlement.githubPullRequest
+      ? {
+          ...settlement.githubPullRequest,
+          createdAt: new Date(settlement.githubPullRequest.createdAt),
+          updatedAt: new Date(settlement.githubPullRequest.updatedAt),
+          mergedAt: settlement.githubPullRequest.mergedAt
+            ? new Date(settlement.githubPullRequest.mergedAt)
+            : undefined,
+          validatedAt: new Date(settlement.githubPullRequest.validatedAt),
+        }
+      : undefined,
     proofFile: settlement.proofFile
       ? {
           ...settlement.proofFile,
@@ -210,6 +228,26 @@ function reviveSettlement(settlement: Settlement): Settlement {
 function reviveReceipt(receipt: Receipt): Receipt {
   return {
     ...receipt,
+    githubPullRequest: receipt.githubPullRequest
+      ? {
+          ...receipt.githubPullRequest,
+          createdAt: new Date(receipt.githubPullRequest.createdAt),
+          updatedAt: new Date(receipt.githubPullRequest.updatedAt),
+          mergedAt: receipt.githubPullRequest.mergedAt
+            ? new Date(receipt.githubPullRequest.mergedAt)
+            : undefined,
+          validatedAt: new Date(receipt.githubPullRequest.validatedAt),
+        }
+      : undefined,
+    source: receipt.source
+      ? {
+          ...receipt.source,
+          importedAt: new Date(receipt.source.importedAt),
+          updatedAt: receipt.source.updatedAt
+            ? new Date(receipt.source.updatedAt)
+            : undefined,
+        }
+      : undefined,
     proofFile: receipt.proofFile
       ? {
           ...receipt.proofFile,
@@ -460,6 +498,8 @@ export class ProoVraDatabase {
 const existingDb = global._proovraDb;
 export const db =
   existingDb &&
+  "ready" in existingDb &&
+  "flush" in existingDb &&
   "wallets" in existingDb &&
   "settlementTransactions" in existingDb &&
   "x402Payments" in existingDb
