@@ -36,6 +36,7 @@ Creator publishes owned content
 - `/` - public landing page for paid creator content.
 - `/dashboard` - creator monetization overview.
 - `/content` - login-gated creator publishing flow for paid resources.
+- `/api/agent/discover` - public agent discovery index for paid content metadata.
 - `/api/creator-content` - list/create creator content records.
 - `/api/creator-content/[id]/access` - x402-gated paid content access endpoint.
 
@@ -57,6 +58,20 @@ npm run build
 ```
 
 The production build should expose only the creator-content app and API routes.
+
+## Agent Discovery
+
+Agents start at `/api/agent/discover`. The endpoint returns titles, excerpts,
+creator names, source URLs, prices, and x402 access URLs without exposing full
+content bodies.
+
+```bash
+curl http://localhost:3000/api/agent/discover
+curl "http://localhost:3000/api/agent/discover?source=rss&q=privacy&limit=10"
+```
+
+Agents then request a resource's `access.url`. Unpaid requests receive
+`402 Payment Required`; paid requests return the authorized JSON body.
 
 ## Environment
 
