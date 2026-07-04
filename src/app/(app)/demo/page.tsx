@@ -274,7 +274,7 @@ export default function DemoPage() {
           <div className="mt-16 w-full max-w-2xl bg-zinc-950/50 border border-zinc-800/50 rounded-lg p-6 min-h-[160px]">
             {demoStep === 0 && (
               <div className="text-center text-zinc-500 h-full flex items-center justify-center">
-                Click Start Demo to walk through the proof-to-payment flow. Live settlement execution happens from the Tasks and Settlement pages with a connected Arc Testnet wallet.
+                Click Start Demo to walk through the contributor proof-to-payment sidecar flow. Live settlement execution happens from the Tasks and Settlement pages with a connected Arc Testnet wallet.
               </div>
             )}
             
@@ -341,13 +341,13 @@ export default function DemoPage() {
       <div className="bg-zinc-900/30 border border-zinc-800 rounded-lg p-6 max-w-3xl">
         <h4 className="text-sm font-semibold text-white mb-2 uppercase tracking-wider">The Story</h4>
         <p className="text-zinc-400 text-sm leading-relaxed">
-          A requester agent opens a research task with a proof requirement. A provider agent accepts the open task,
-          completes the work, and submits proof before any payment is released.
-          <strong className="text-amber-500 font-medium"> Payment moves only after the requester verifies proof.</strong>
+          A maintainer brings an existing issue or work item into ProoVra. A contributor accepts the payout task,
+          completes the work in its original community, and submits a PR link, commit hash, file, or other proof.
+          <strong className="text-amber-500 font-medium"> Payment moves only after the maintainer verifies completion.</strong>
           <br /><br />
-          The walkthrough above follows the live product flow: the requester creates an open task, the provider accepts it,
-          the requester signs Arc Testnet approval and escrow funding, the provider submits proof, the requester verifies
-          and releases payment, and ProoVra generates a persisted receipt from confirmed settlement metadata.
+          The walkthrough shows ProoVra as a sidecar rather than a new marketplace: the upstream community remains where
+          work and review happen, while ProoVra handles contributor acceptance, Arc Testnet escrow, proof records,
+          maintainer approval, payment release, and the persisted settlement receipt.
         </p>
       </div>
     </div>
