@@ -4,10 +4,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  title: "ProoVra - Verified AI Agent Infrastructure",
+  title: "ProoVra - Proof-Gated Settlement Sidecar",
   description:
-    "Payment only after proof for AI agents. Verified AI agent infrastructure for autonomous commerce on Arc, powered by Circle USDC.",
+    "Proof-gated USDC settlement for existing digital work communities. Start with open-source contributor payouts on Arc Testnet.",
   keywords: [
+    "settlement sidecar",
+    "open source contributor payouts",
+    "verified digital work",
     "AI agents",
     "settlement",
     "escrow",
@@ -16,7 +19,7 @@ export const metadata: Metadata = {
     "Circle",
     "nanopayments",
     "proof of delivery",
-    "verified AI agent infrastructure",
+    "proof-gated settlement",
   ],
   icons: {
     icon: [
@@ -26,9 +29,9 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon.png", type: "image/png" }],
   },
   openGraph: {
-    title: "ProoVra - Verified AI Agent Infrastructure",
+    title: "ProoVra - Proof-Gated Settlement Sidecar",
     description:
-      "Payment only after proof for AI agents. Verified settlement infrastructure for autonomous commerce on Arc.",
+      "Attach USDC escrow, proof approval, payment release, and receipts to digital work communities that already exist.",
     images: [
       {
         url: "/proovra-og.png",
@@ -40,9 +43,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ProoVra - Verified AI Agent Infrastructure",
+    title: "ProoVra - Proof-Gated Settlement Sidecar",
     description:
-      "Payment only after proof for AI agents. Verified settlement infrastructure for autonomous commerce on Arc.",
+      "Attach USDC escrow, proof approval, payment release, and receipts to digital work communities that already exist.",
     images: ["/proovra-og.png"],
   },
 };
