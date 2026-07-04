@@ -4,22 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Bot,
-  ClipboardList,
-  ArrowRightLeft,
-  Receipt,
-  Play,
+  Newspaper,
   ExternalLink,
 } from "lucide-react";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/agents", label: "Agents", icon: Bot },
-  { href: "/tasks", label: "Tasks", icon: ClipboardList },
-  { href: "/settlement", label: "Settlement", icon: ArrowRightLeft },
-  { href: "/receipts", label: "Receipts", icon: Receipt },
-  { href: "/demo", label: "Demo", icon: Play },
+  { href: "/content", label: "Creator Content", icon: Newspaper },
 ];
 
 export function Sidebar() {
@@ -49,7 +41,6 @@ export function Sidebar() {
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
-            const isSettlement = item.href === "/settlement";
 
             return (
               <li key={item.href}>
@@ -59,7 +50,7 @@ export function Sidebar() {
                     isActive
                       ? "bg-amber-500/8 text-amber-500 border border-amber-500/15"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 border border-transparent"
-                  } ${isSettlement && !isActive ? "text-zinc-300" : ""}`}
+                  }`}
                 >
                   <Icon
                     className={`h-4 w-4 flex-shrink-0 ${
@@ -69,9 +60,6 @@ export function Sidebar() {
                     }`}
                   />
                   <span>{item.label}</span>
-                  {isSettlement && (
-                    <span className="ml-auto flex h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  )}
                 </Link>
               </li>
             );
@@ -82,7 +70,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="border-t border-[#1e1e22] px-4 py-3">
         <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-          <span className="uppercase tracking-wider">Settled on</span>
+          <span className="uppercase tracking-wider">Paid on</span>
           <span className="font-semibold text-zinc-500">Arc</span>
           <span className="text-zinc-700">·</span>
           <span className="font-semibold text-zinc-500">USDC</span>

@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import type {
   ActivityEvent,
   Agent,
+  CreatorContent,
+  CreatorContentAccess,
   DashboardStats,
   Receipt,
   Settlement,
@@ -64,7 +66,7 @@ export interface X402PaymentRecord {
 }
 
 type PersistedDatabase = {
-  version: 3;
+  version: 4;
   agents: Agent[];
   tasks: Task[];
   settlements: Settlement[];
@@ -72,6 +74,8 @@ type PersistedDatabase = {
   wallets: AgentWalletRecord[];
   settlementTransactions: SettlementTransactionRecord[];
   x402Payments: X402PaymentRecord[];
+  creatorContents: CreatorContent[];
+  creatorContentAccesses: CreatorContentAccess[];
   activities: ActivityEvent[];
   stats: DashboardStats;
 };
@@ -298,9 +302,26 @@ function reviveX402Payment(payment: X402PaymentRecord): X402PaymentRecord {
   };
 }
 
+function reviveCreatorContent(content: CreatorContent): CreatorContent {
+  return {
+    ...content,
+    createdAt: new Date(content.createdAt),
+    updatedAt: new Date(content.updatedAt),
+  };
+}
+
+function reviveCreatorContentAccess(
+  access: CreatorContentAccess
+): CreatorContentAccess {
+  return {
+    ...access,
+    accessedAt: new Date(access.accessedAt),
+  };
+}
+
 function createEmptyDatabase(): PersistedDatabase {
   return {
-    version: 3,
+    version: 4,
     agents: [],
     tasks: [],
     settlements: [],
@@ -308,6 +329,8 @@ function createEmptyDatabase(): PersistedDatabase {
     wallets: [],
     settlementTransactions: [],
     x402Payments: [],
+    creatorContents: [],
+    creatorContentAccesses: [],
     activities: [],
     stats: {
       totalSettled: 0,
@@ -324,18 +347,22 @@ function createEmptyDatabase(): PersistedDatabase {
 
 function reviveDatabase(data: PersistedDatabase): PersistedDatabase {
   return {
-    version: 3,
-    agents: data.agents.map(reviveAgent),
-    tasks: data.tasks.map(reviveTask),
-    settlements: data.settlements.map(reviveSettlement),
-    receipts: data.receipts.map(reviveReceipt),
+    version: 4,
+    agents: (data.agents ?? []).map(reviveAgent),
+    tasks: (data.tasks ?? []).map(reviveTask),
+    settlements: (data.settlements ?? []).map(reviveSettlement),
+    receipts: (data.receipts ?? []).map(reviveReceipt),
     wallets: (data.wallets ?? []).map(reviveWallet),
     settlementTransactions: (data.settlementTransactions ?? []).map(
       reviveSettlementTransaction
     ),
     x402Payments: (data.x402Payments ?? []).map(reviveX402Payment),
-    activities: data.activities.map(reviveActivity),
-    stats: { ...data.stats },
+    creatorContents: (data.creatorContents ?? []).map(reviveCreatorContent),
+    creatorContentAccesses: (data.creatorContentAccesses ?? []).map(
+      reviveCreatorContentAccess
+    ),
+    activities: (data.activities ?? []).map(reviveActivity),
+    stats: { ...createEmptyDatabase().stats, ...(data.stats ?? {}) },
   };
 }
 
@@ -353,6 +380,8 @@ export class ProoVraDatabase {
   wallets!: Map<string, AgentWalletRecord>;
   settlementTransactions!: Map<string, SettlementTransactionRecord>;
   x402Payments!: Map<string, X402PaymentRecord>;
+  creatorContents!: Map<string, CreatorContent>;
+  creatorContentAccesses!: Map<string, CreatorContentAccess>;
   activities!: ActivityEvent[];
   stats!: DashboardStats;
 
@@ -425,6 +454,14 @@ export class ProoVraDatabase {
       data.x402Payments.map((payment) => [payment.paymentId, payment]),
       persist
     );
+    this.creatorContents = new PersistentMap(
+      data.creatorContents.map((content) => [content.id, content]),
+      persist
+    );
+    this.creatorContentAccesses = new PersistentMap(
+      data.creatorContentAccesses.map((access) => [access.id, access]),
+      persist
+    );
     this.activities = [...data.activities].sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
     );
@@ -463,7 +500,7 @@ export class ProoVraDatabase {
 
   private snapshot(): PersistedDatabase {
     return {
-      version: 3,
+      version: 4,
       agents: Array.from(this.agents.values()),
       tasks: Array.from(this.tasks.values()),
       settlements: Array.from(this.settlements.values()),
@@ -471,6 +508,8 @@ export class ProoVraDatabase {
       wallets: Array.from(this.wallets.values()),
       settlementTransactions: Array.from(this.settlementTransactions.values()),
       x402Payments: Array.from(this.x402Payments.values()),
+      creatorContents: Array.from(this.creatorContents.values()),
+      creatorContentAccesses: Array.from(this.creatorContentAccesses.values()),
       activities: this.activities,
       stats: this.stats,
     };
@@ -502,7 +541,9 @@ export const db =
   "flush" in existingDb &&
   "wallets" in existingDb &&
   "settlementTransactions" in existingDb &&
-  "x402Payments" in existingDb
+  "x402Payments" in existingDb &&
+  "creatorContents" in existingDb &&
+  "creatorContentAccesses" in existingDb
     ? existingDb
     : new ProoVraDatabase();
 

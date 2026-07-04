@@ -4,22 +4,20 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  title: "ProoVra - Proof-Gated Settlement Sidecar",
+  title: "ProoVra - Paid Creator Content for AI Agents",
   description:
-    "Proof-gated USDC settlement for existing digital work communities. Start with open-source contributor payouts on Arc Testnet.",
+    "Turn creator-owned content into x402-protected APIs that AI agents pay to read, cite, summarize, or reuse on Arc Testnet.",
   keywords: [
-    "settlement sidecar",
-    "open source contributor payouts",
-    "verified digital work",
+    "creator monetization",
+    "paid content APIs",
+    "x402",
     "AI agents",
-    "settlement",
-    "escrow",
+    "agent payments",
     "USDC",
     "Arc",
     "Circle",
     "nanopayments",
-    "proof of delivery",
-    "proof-gated settlement",
+    "creator economy",
   ],
   icons: {
     icon: [
@@ -29,9 +27,9 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon.png", type: "image/png" }],
   },
   openGraph: {
-    title: "ProoVra - Proof-Gated Settlement Sidecar",
+    title: "ProoVra - Paid Creator Content for AI Agents",
     description:
-      "Attach USDC escrow, proof approval, payment release, and receipts to digital work communities that already exist.",
+      "Expose creator-owned content through x402-protected APIs so AI agents pay USDC nanopayments before access.",
     images: [
       {
         url: "/proovra-og.png",
@@ -43,9 +41,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ProoVra - Proof-Gated Settlement Sidecar",
+    title: "ProoVra - Paid Creator Content for AI Agents",
     description:
-      "Attach USDC escrow, proof approval, payment release, and receipts to digital work communities that already exist.",
+      "Expose creator-owned content through x402-protected APIs so AI agents pay USDC nanopayments before access.",
     images: ["/proovra-og.png"],
   },
 };

@@ -213,3 +213,35 @@ export interface DashboardStats {
   totalTransactions: number;
   volume24h: number;
 }
+
+export type CreatorContentStatus = "draft" | "published" | "paused";
+export type CreatorContentSource = "manual" | "rss" | "ghost" | "docs";
+
+export interface CreatorContent {
+  id: string;
+  title: string;
+  description: string;
+  body: string;
+  creatorName: string;
+  creatorWallet: string;
+  source: CreatorContentSource;
+  sourceUrl?: string;
+  price: number;
+  currency: "USDC";
+  status: CreatorContentStatus;
+  accessCount: number;
+  totalEarned: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CreatorContentAccess {
+  id: string;
+  contentId: string;
+  paymentId: string;
+  agentWallet: string;
+  amount: number;
+  currency: "USDC";
+  status: "settled";
+  accessedAt: Date;
+}
