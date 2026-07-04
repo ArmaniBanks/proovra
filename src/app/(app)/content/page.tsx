@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Copy, ExternalLink, Loader2, Newspaper, Plus, Receipt, Wallet } from "lucide-react";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useApi } from "@/hooks/useApi";
 import type {
   CreatorContent,
@@ -10,6 +11,7 @@ import type {
   CreatorContentSource,
 } from "@/lib/mock-data";
 import { cn, formatUSDC, formatTimeAgo } from "@/lib/utils";
+import { hasPrivyConfig } from "@/lib/privy-config";
 
 type CreatorContentResponse = {
   contents: CreatorContent[];
@@ -39,7 +41,7 @@ const initialForm: ContentForm = {
   body:
     "This is creator-owned source material. Agents can read it after paying through ProoVra, then cite the receipt when they reuse the content.",
   creatorName: "ProoVra Creator",
-  creatorWallet: "0x1047d233336BE340eFD867dB02C8a466bCFaA357",
+  creatorWallet: "",
   source: "manual",
   sourceUrl: "",
   price: "0.000001",
@@ -54,6 +56,21 @@ export default function CreatorContentPage() {
   const { data, loading, error, mutate } =
     useApi<CreatorContentResponse>("/api/creator-content");
   const [form, setForm] = useState<ContentForm>(initialForm);
+  const [privyWalletAddress, setPrivyWalletAddress] = useState("");
+  const syncCreatorIdentity = useCallback(
+    (identity: { email: string; walletAddress: string }) => {
+      setPrivyWalletAddress(identity.walletAddress);
+      setForm((current) => ({
+        ...current,
+        creatorName:
+          current.creatorName === initialForm.creatorName && identity.email
+            ? identity.email
+            : current.creatorName,
+        creatorWallet: identity.walletAddress || current.creatorWallet,
+      }));
+    },
+    []
+  );
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [copiedId, setCopiedId] = useState("");
@@ -115,6 +132,10 @@ export default function CreatorContentPage() {
 
   return (
     <div className="space-y-6">
+      {hasPrivyConfig && (
+        <CreatorWalletSync onCreatorIdentity={syncCreatorIdentity} />
+      )}
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2.5">
@@ -211,8 +232,14 @@ export default function CreatorContentPage() {
             setForm((current) => ({ ...current, creatorWallet: event.target.value }))
           }
           placeholder="Creator payout wallet"
+          readOnly={Boolean(privyWalletAddress)}
           className="mt-3 w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
         />
+        {privyWalletAddress && (
+          <p className="mt-2 text-xs text-emerald-300">
+            Payout wallet is your Privy embedded wallet on Arc Testnet.
+          </p>
+        )}
         <input
           value={form.description}
           onChange={(event) =>
@@ -339,6 +366,28 @@ export default function CreatorContentPage() {
       </div>
     </div>
   );
+}
+
+function CreatorWalletSync({
+  onCreatorIdentity,
+}: {
+  onCreatorIdentity: (identity: { email: string; walletAddress: string }) => void;
+}) {
+  const { authenticated, user } = usePrivy();
+  const { wallets, ready } = useWallets();
+
+  useEffect(() => {
+    if (!authenticated || !ready) return;
+    const wallet =
+      wallets.find((candidate) => candidate.walletClientType === "privy") ?? wallets[0];
+    if (!wallet?.address) return;
+    onCreatorIdentity({
+      email: user?.email?.address ?? "",
+      walletAddress: wallet.address,
+    });
+  }, [authenticated, onCreatorIdentity, ready, user?.email?.address, wallets]);
+
+  return null;
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) {

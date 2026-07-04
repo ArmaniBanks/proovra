@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@circle-fin/x402-batching": "^3.0.4",
+    "@privy-io/react-auth": "^3.33.1",
     "@vercel/blob": "^2.4.1",
     "@x402/core": "^2.11.0",
     "@x402/evm": "^2.11.0",

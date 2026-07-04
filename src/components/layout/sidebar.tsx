@@ -4,14 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Newspaper,
   ExternalLink,
 } from "lucide-react";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/content", label: "Creator Content", icon: Newspaper },
 ];
 
 export function Sidebar() {

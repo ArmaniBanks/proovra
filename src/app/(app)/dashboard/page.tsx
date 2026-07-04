@@ -1,11 +1,30 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Bot, CircleDollarSign, Newspaper, Receipt, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  CheckCircle2,
+  CircleDollarSign,
+  Copy,
+  LogOut,
+  Mail,
+  Newspaper,
+  Receipt,
+  Send,
+  ShieldCheck,
+  Wallet,
+} from "lucide-react";
+import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
 import { useApi } from "@/hooks/useApi";
 import type { CreatorContent, CreatorContentAccess } from "@/lib/mock-data";
+import { arcTestnetChain, hasPrivyConfig } from "@/lib/privy-config";
 import { formatUSDC } from "@/lib/utils";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
+import { CreatorPlatformPanel } from "@/components/auth/creator-platform-panel";
+
+const ARC_USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 
 type CreatorContentResponse = {
   contents: CreatorContent[];
@@ -18,44 +37,317 @@ type CreatorContentResponse = {
   };
 };
 
+type BalanceState = {
+  loading: boolean;
+  value: string;
+  error: string;
+};
+
 export default function DashboardPage() {
+  if (!hasPrivyConfig) return <PrivySetupDashboard />;
+  return <PrivyDashboard />;
+}
+
+function PrivySetupDashboard() {
+  return (
+    <div className="flex min-h-[72vh] items-center justify-center">
+      <div className="max-w-2xl rounded-2xl border border-amber-500/20 bg-zinc-900/70 p-8 text-center">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
+          <ShieldCheck className="h-6 w-6 text-amber-400" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-white">
+          Configure Privy to enable creator dashboards.
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-zinc-400">
+          Launch App should open this dashboard. Set `NEXT_PUBLIC_PRIVY_APP_ID`
+          so creators can log in by email, receive an embedded Arc wallet, and
+          manage content monetization from their own account.
+        </p>
+        <code className="mt-6 block rounded-lg border border-zinc-800 bg-zinc-950/70 px-4 py-3 text-left text-xs text-zinc-400">
+          NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+        </code>
+      </div>
+    </div>
+  );
+}
+
+function PrivyDashboard() {
+  const { ready, authenticated, user, login, logout } = usePrivy();
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-zinc-500">
+        Loading creator dashboard...
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="flex min-h-[72vh] items-center justify-center">
+        <div className="max-w-3xl rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-zinc-900/70 to-zinc-950 p-8">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+            <ProoVraMark size={18} />
+            Creator dashboard
+          </div>
+          <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-white">
+            Login to manage your paid creator content.
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400">
+            Creators sign in with email through Privy. ProoVra creates an
+            embedded wallet on Arc Testnet, then keeps your content sources,
+            x402 endpoints, USDC balance, receipts, and withdrawals inside your
+            creator dashboard.
+          </p>
+          <button
+            type="button"
+            onClick={login}
+            className="mt-8 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400"
+          >
+            <Mail className="h-4 w-4" />
+            Login with Email
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <CreatorDashboard email={user?.email?.address ?? "Creator account"} onLogout={logout} />;
+}
+
+function CreatorDashboard({
+  email,
+  onLogout,
+}: {
+  email: string;
+  onLogout: () => void;
+}) {
+  const { wallets, ready: walletsReady } = useWallets();
+  const { sendTransaction } = useSendTransaction();
   const { data, loading, error } =
     useApi<CreatorContentResponse>("/api/creator-content");
-
-  if (error) {
-    return <div className="p-8 text-red-400">Error loading dashboard: {error.message}</div>;
-  }
+  const embeddedWallet =
+    wallets.find((wallet) => wallet.walletClientType === "privy") ?? wallets[0];
+  const walletAddress = embeddedWallet?.address ?? "";
+  const [copied, setCopied] = useState(false);
+  const [balance, setBalance] = useState<BalanceState>({
+    loading: false,
+    value: "0.000000",
+    error: "",
+  });
+  const [withdrawTo, setWithdrawTo] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawStatus, setWithdrawStatus] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const summary = data?.summary;
   const contents = data?.contents ?? [];
   const latestContent = contents[0];
 
+  const canWithdraw = useMemo(
+    () => isAddress(withdrawTo) && Number(withdrawAmount) > 0 && Boolean(walletAddress),
+    [walletAddress, withdrawAmount, withdrawTo]
+  );
+
+  useEffect(() => {
+    if (!walletAddress) return;
+    let active = true;
+
+    async function loadBalance() {
+      setBalance((current) => ({ ...current, loading: true, error: "" }));
+      try {
+        const value = await fetchUsdcBalance(walletAddress);
+        if (active) setBalance({ loading: false, value, error: "" });
+      } catch (error) {
+        if (active) {
+          setBalance({
+            loading: false,
+            value: "0.000000",
+            error: error instanceof Error ? error.message : "Balance unavailable",
+          });
+        }
+      }
+    }
+
+    void loadBalance();
+    const interval = window.setInterval(loadBalance, 20_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [walletAddress]);
+
+  async function copyWallet() {
+    if (!walletAddress) return;
+    await navigator.clipboard.writeText(walletAddress);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
+  async function withdrawFunds() {
+    if (!canWithdraw || !walletAddress) return;
+
+    setWithdrawing(true);
+    setWithdrawStatus("");
+    try {
+      const data = encodeUsdcTransfer(withdrawTo, withdrawAmount);
+      const result = await sendTransaction(
+        {
+          to: ARC_USDC_ADDRESS,
+          data,
+          value: "0x0",
+          chainId: arcTestnetChain.id,
+        },
+        { address: walletAddress }
+      );
+      setWithdrawStatus(`Withdrawal submitted: ${result.hash}`);
+      setWithdrawAmount("");
+      setWithdrawTo("");
+      setBalance((current) => ({ ...current, loading: true }));
+      const refreshed = await fetchUsdcBalance(walletAddress);
+      setBalance({ loading: false, value: refreshed, error: "" });
+    } catch (error) {
+      setWithdrawStatus(
+        error instanceof Error ? error.message : "Withdrawal failed"
+      );
+    } finally {
+      setWithdrawing(false);
+    }
+  }
+
+  if (error) {
+    return <div className="p-8 text-red-400">Error loading dashboard: {error.message}</div>;
+  }
+
   return (
-    <div className="space-y-8">
-      <div className="rounded-2xl border border-amber-500/15 bg-gradient-to-br from-amber-500/10 via-zinc-900/60 to-zinc-950 p-6">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
-          <ProoVraMark size={18} />
-          Creator-owned content, paid agent access
-        </div>
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-zinc-900/70 to-zinc-950 p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-white">
-              ProoVra turns creator content into x402-paid APIs for AI agents.
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Creator dashboard active
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Welcome, {email}
             </h1>
-            <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400">
-              Creators publish content they own, set a USDC nanoprice, and agents
-              receive a `402 Payment Required` challenge before reading, citing, or
-              reusing the content.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+              Manage your connected platforms, paid agent-readable content,
+              wallet balance, receipts, and withdrawals from this dashboard.
             </p>
           </div>
-          <Link
-            href="/content"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-3 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400"
+          <button
+            type="button"
+            onClick={onLogout}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-red-500/30 hover:text-red-300"
           >
-            Publish Content
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+            <LogOut className="h-4 w-4" />
+            Logout
+          </button>
         </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+        <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 inline-flex rounded-lg bg-amber-500/10 p-2">
+                <Wallet className="h-4 w-4 text-amber-400" />
+              </div>
+              <h2 className="text-sm font-semibold text-zinc-100">
+                Creator Arc Wallet
+              </h2>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                This embedded wallet is created by Privy and used for your Arc
+                Testnet creator account.
+              </p>
+            </div>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/60 px-2.5 py-1 text-[11px] text-zinc-400">
+              Arc Testnet
+            </span>
+          </div>
+
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+            <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+              Wallet address
+            </p>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <code className="break-all font-mono text-xs text-zinc-300">
+                {walletsReady && walletAddress ? walletAddress : "Generating wallet..."}
+              </code>
+              <button
+                type="button"
+                onClick={copyWallet}
+                disabled={!walletAddress}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-300 transition-colors hover:border-amber-500/30 hover:text-amber-300 disabled:text-zinc-700"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                USDC Balance
+              </p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-zinc-100">
+                {balance.loading ? "..." : balance.value}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">USDC on Arc Testnet</p>
+              {balance.error && (
+                <p className="mt-2 text-xs text-red-400">{balance.error}</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                Earned From Agents
+              </p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-zinc-100">
+                {loading ? "..." : formatUSDC(summary?.totalEarned ?? 0)}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">Receipt-tracked access</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+          <div className="mb-4 inline-flex rounded-lg bg-amber-500/10 p-2">
+            <Send className="h-4 w-4 text-amber-400" />
+          </div>
+          <h2 className="text-sm font-semibold text-zinc-100">Withdraw Funds</h2>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
+            Send USDC from your creator wallet to another address on Arc Testnet.
+          </p>
+          <div className="mt-4 space-y-3">
+            <input
+              value={withdrawTo}
+              onChange={(event) => setWithdrawTo(event.target.value)}
+              placeholder="Destination wallet address"
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+            />
+            <input
+              value={withdrawAmount}
+              onChange={(event) => setWithdrawAmount(event.target.value)}
+              inputMode="decimal"
+              placeholder="Amount USDC"
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+            />
+            <button
+              type="button"
+              onClick={withdrawFunds}
+              disabled={!canWithdraw || withdrawing}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+            >
+              <Send className="h-4 w-4" />
+              {withdrawing ? "Withdrawing" : "Withdraw USDC"}
+            </button>
+            {withdrawStatus && (
+              <p className="break-all text-xs leading-5 text-zinc-400">{withdrawStatus}</p>
+            )}
+          </div>
+        </section>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -81,58 +373,54 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Zap className="h-4 w-4 text-amber-400" />
-            <h2 className="text-sm font-semibold text-zinc-100">Agent Payment Flow</h2>
-          </div>
-          <div className="space-y-3 text-sm text-zinc-400">
-            <FlowStep label="1" text="Agent requests a creator content endpoint." />
-            <FlowStep label="2" text="ProoVra returns x402 payment requirements." />
-            <FlowStep label="3" text="Agent pays USDC on Arc through Circle x402." />
-            <FlowStep label="4" text="ProoVra returns clean JSON content plus a receipt." />
-          </div>
-        </div>
+      <CreatorPlatformPanel />
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-100">Latest Resource</h2>
-            <Link href="/content" className="text-xs text-amber-400 hover:text-amber-300">
-              View all
-            </Link>
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-100">Creator Content</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Publish resources agents can access through x402-paid endpoints.
+            </p>
           </div>
-          {latestContent ? (
-            <div>
-              <p className="text-base font-semibold text-zinc-100">{latestContent.title}</p>
-              <p className="mt-2 text-sm leading-6 text-zinc-500">
-                {latestContent.description}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-zinc-400">
-                  {latestContent.source.toUpperCase()}
-                </span>
-                <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-amber-300">
-                  {formatUSDC(latestContent.price)} per access
-                </span>
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-300">
-                  {latestContent.accessCount} paid accesses
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="py-8 text-center">
-              <Newspaper className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
-              <p className="text-sm font-medium text-zinc-400">
-                No creator resources yet
-              </p>
-              <p className="mt-1 text-xs text-zinc-600">
-                Publish the first paid resource from the Creator Content page.
-              </p>
-            </div>
-          )}
+          <Link
+            href="/content"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-zinc-950 transition-colors hover:bg-amber-400"
+          >
+            Manage Content
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
-      </div>
+        {latestContent ? (
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
+            <p className="text-base font-semibold text-zinc-100">{latestContent.title}</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-500">
+              {latestContent.description}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-zinc-400">
+                {latestContent.source.toUpperCase()}
+              </span>
+              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-amber-300">
+                {formatUSDC(latestContent.price)} per access
+              </span>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-emerald-300">
+                {latestContent.accessCount} paid accesses
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="py-8 text-center">
+            <Newspaper className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
+            <p className="text-sm font-medium text-zinc-400">
+              No creator resources yet
+            </p>
+            <p className="mt-1 text-xs text-zinc-600">
+              Connect a platform or publish your first paid resource.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -159,13 +447,51 @@ function StatCard({
   );
 }
 
-function FlowStep({ label, text }: { label: string; text: string }) {
-  return (
-    <div className="flex gap-3">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 font-mono text-xs text-amber-300">
-        {label}
-      </span>
-      <p className="leading-6">{text}</p>
-    </div>
-  );
+async function fetchUsdcBalance(address: string) {
+  const response = await fetch(arcTestnetChain.rpcUrls.default.http[0], {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_call",
+      params: [
+        {
+          to: ARC_USDC_ADDRESS,
+          data: `0x70a08231${address.slice(2).padStart(64, "0")}`,
+        },
+        "latest",
+      ],
+    }),
+  });
+
+  if (!response.ok) throw new Error("Unable to reach Arc RPC.");
+  const payload = (await response.json()) as { result?: string; error?: { message?: string } };
+  if (payload.error) throw new Error(payload.error.message ?? "Arc RPC balance error.");
+  const raw = BigInt(payload.result ?? "0x0");
+  return formatTokenAmount(raw, 6);
+}
+
+function encodeUsdcTransfer(to: string, amount: string): `0x${string}` {
+  const units = parseTokenUnits(amount, 6);
+  const recipient = to.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+  const value = units.toString(16).padStart(64, "0");
+  return `0xa9059cbb${recipient}${value}` as `0x${string}`;
+}
+
+function parseTokenUnits(value: string, decimals: number) {
+  const [whole = "0", fraction = ""] = value.trim().split(".");
+  const normalizedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
+  return BigInt(whole || "0") * BigInt(10) ** BigInt(decimals) + BigInt(normalizedFraction || "0");
+}
+
+function formatTokenAmount(value: bigint, decimals: number) {
+  const divisor = BigInt(10) ** BigInt(decimals);
+  const whole = value / divisor;
+  const fraction = (value % divisor).toString().padStart(decimals, "0");
+  return `${whole}.${fraction}`;
+}
+
+function isAddress(value: string) {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
 }

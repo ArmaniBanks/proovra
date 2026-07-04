@@ -35,7 +35,7 @@ Creator publishes owned content
 
 - `/` - public landing page for paid creator content.
 - `/dashboard` - creator monetization overview.
-- `/content` - create paid resources and copy agent API endpoints.
+- `/content` - login-gated creator publishing flow for paid resources.
 - `/api/creator-content` - list/create creator content records.
 - `/api/creator-content/[id]/access` - x402-gated paid content access endpoint.
 
@@ -63,8 +63,9 @@ The production build should expose only the creator-content app and API routes.
 Optional x402 configuration:
 
 ```bash
+NEXT_PUBLIC_PRIVY_APP_ID=your-privy-app-id
 PROOVRA_X402_GATEWAY_URL=https://gateway-api-testnet.circle.com
 PROOVRA_X402_ASSET=0x3600000000000000000000000000000000000000
 ```
 
-Creator payout wallets are stored per content record. Local development persists records in `data/proovra-db.json`; production can use Vercel KV through the existing database adapter.
+Privy email login automatically provisions embedded Ethereum wallets for creators and defaults the app wallet context to Arc Testnet. Creator payout wallets are stored per content record. Local development persists records in `data/proovra-db.json`; production can use Vercel KV through the existing database adapter.
