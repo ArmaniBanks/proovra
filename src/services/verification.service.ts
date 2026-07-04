@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
-import type { ProofFile } from "@/lib/mock-data";
+import type { GitHubPullRequestEvidence, ProofFile } from "@/lib/mock-data";
 import { areSameWallet, assertDifferentWallets } from "@/lib/wallet-validation";
 import { EscrowService } from "./escrow.service";
 import { TaskService } from "./task.service";
@@ -10,6 +10,7 @@ type ProofSubmission = {
   proofUrl?: string;
   proofText?: string;
   proofFile?: ProofFile;
+  githubPullRequest?: GitHubPullRequestEvidence;
   submitterWallet?: string;
 };
 
@@ -62,6 +63,7 @@ export class VerificationService {
       proofUrl: proof.proofUrl,
       proofText: proof.proofText,
       proofFile: proof.proofFile,
+      githubPullRequest: proof.githubPullRequest,
       proofSubmittedAt: new Date(),
     });
     TaskService.updateTaskStatus(settlement.taskId, "delivered");
