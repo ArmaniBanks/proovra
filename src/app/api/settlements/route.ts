@@ -6,6 +6,7 @@ import { SettlementService } from "@/services/settlement.service";
 import { VerificationService } from "@/services/verification.service";
 import type { PricingModel } from "@/lib/mock-data";
 import { areSameWallet } from "@/lib/wallet-validation";
+import { getGitHubPullRequestEvidence } from "@/integrations/github";
 
 const pricingModels: PricingModel[] = [
   "per-task",
@@ -105,9 +106,23 @@ export async function PATCH(req: Request) {
 
   try {
     if (body.action === "submit-proof") {
+      const currentSettlement = db.settlements.get(body.settlementId);
+      if (!currentSettlement) {
+        throw new Error("Settlement not found");
+      }
+      const task = db.tasks.get(currentSettlement.taskId);
+      const proofUrl =
+        typeof body.proofUrl === "string" && body.proofUrl.trim()
+          ? body.proofUrl.trim()
+          : undefined;
+      const githubPullRequest =
+        task?.source?.platform === "github" && proofUrl
+          ? await getGitHubPullRequestEvidence(proofUrl, task.source)
+          : undefined;
+
       VerificationService.submitProof(body.settlementId, {
         proofHash: typeof body.proofHash === "string" ? body.proofHash : undefined,
-        proofUrl: typeof body.proofUrl === "string" ? body.proofUrl : undefined,
+        proofUrl,
         proofText: typeof body.proofText === "string" ? body.proofText : undefined,
         proofFile:
           body.proofFile && typeof body.proofFile === "object"
@@ -124,6 +139,7 @@ export async function PATCH(req: Request) {
                     : undefined,
               }
             : undefined,
+        githubPullRequest,
         submitterWallet: typeof body.walletAddress === "string" ? body.walletAddress : undefined,
       });
       const settlement = ReadModelService.getSettlements().find(
