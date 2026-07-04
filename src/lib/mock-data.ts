@@ -70,6 +70,41 @@ export interface Task {
   deadline: Date;
   createdAt: Date;
   milestones?: Milestone[];
+  source?: WorkSource;
+}
+
+export interface WorkSource {
+  platform: "github";
+  kind: "issue";
+  externalId: string;
+  issueNumber?: number;
+  url: string;
+  apiUrl: string;
+  repository: string;
+  title: string;
+  state: "open" | "closed";
+  author: string;
+  labels: string[];
+  importedAt: Date;
+  updatedAt?: Date;
+}
+
+export interface GitHubPullRequestEvidence {
+  platform: "github";
+  repository: string;
+  pullRequestNumber: number;
+  title: string;
+  author: string;
+  state: "open" | "closed";
+  merged: boolean;
+  url: string;
+  apiUrl: string;
+  createdAt: Date;
+  updatedAt: Date;
+  mergedAt?: Date;
+  referencesIssue: boolean;
+  referenceWarning?: string;
+  validatedAt: Date;
 }
 
 export interface Milestone {
@@ -93,6 +128,7 @@ export interface Settlement {
   proofUrl?: string;
   proofText?: string;
   proofFile?: ProofFile;
+  githubPullRequest?: GitHubPullRequestEvidence;
   proofSubmittedAt?: Date;
   verifiedAt?: Date;
   verifiedBy?: string;
@@ -134,6 +170,7 @@ export interface Receipt {
   proofUrl?: string;
   proofText?: string;
   proofFile?: ProofFile;
+  githubPullRequest?: GitHubPullRequestEvidence;
   verificationTimestamp?: Date;
   arcTxHash: string;
   escrowTxHash?: string;
@@ -145,6 +182,7 @@ export interface Receipt {
   settlementTime: number;
   settlementTimestamp?: Date;
   createdAt: Date;
+  source?: WorkSource;
 }
 
 export interface ActivityEvent {
