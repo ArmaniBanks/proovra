@@ -22,7 +22,7 @@ The product also touches autonomous paying agents and paid agent services:
 - Frontend: Next.js app with creator-focused landing, dashboard, and content publisher UI.
 - Login: Privy email authentication for creator accounts.
 - Wallets: Privy embedded Ethereum wallets generated for creators and configured around Arc Testnet.
-- Connector: WordPress.com / Jetpack WordPress OAuth imports posts only after the creator approves access from their own WordPress account.
+- Connector: verified RSS import fetches public feed items only after the creator proves ownership of the feed/domain.
 - Persistence: local JSON in development, Vercel KV-compatible adapter in production.
 - Content records: title, description, body, creator name, payout wallet, source type, source URL, price, status, access count, and earnings.
 - Paid endpoint: `GET /api/creator-content/[id]/access`.
@@ -32,7 +32,7 @@ The product also touches autonomous paying agents and paid agent services:
 ## Demo Script
 
 1. Creator opens `/content`.
-2. Creator publishes an owned note, RSS item, docs page, or manual resource.
+2. Creator verifies an RSS feed/domain or publishes a manual resource.
 3. ProoVra generates a paid API endpoint.
 4. Agent requests the endpoint and receives `402 Payment Required`.
 5. Agent signs/pays through Circle x402 on Arc Testnet.

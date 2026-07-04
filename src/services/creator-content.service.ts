@@ -24,13 +24,7 @@ type RecordAccessInput = {
   amount: number;
 };
 
-const sourceTypes: CreatorContentSource[] = [
-  "manual",
-  "rss",
-  "ghost",
-  "docs",
-  "wordpress",
-];
+const sourceTypes: CreatorContentSource[] = ["manual", "rss"];
 
 function makeId(prefix: string, seed: string) {
   const digest = createHash("sha256")

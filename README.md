@@ -65,12 +65,10 @@ Optional x402 configuration:
 ```bash
 NEXT_PUBLIC_PRIVY_APP_ID=your-privy-app-id
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-WORDPRESS_CLIENT_ID=your-wordpress-oauth-client-id
-WORDPRESS_CLIENT_SECRET=your-wordpress-oauth-client-secret
 PROOVRA_X402_GATEWAY_URL=https://gateway-api-testnet.circle.com
 PROOVRA_X402_ASSET=0x3600000000000000000000000000000000000000
 ```
 
 Privy email login automatically provisions embedded Ethereum wallets for creators and defaults the app wallet context to Arc Testnet. Creator payout wallets are stored per content record. Local development persists records in `data/proovra-db.json`; production can use Vercel KV through the existing database adapter.
 
-The first real content connector is WordPress.com / Jetpack-connected WordPress. Creators must approve access through WordPress OAuth before ProoVra imports posts, so the app does not monetize arbitrary pasted URLs.
+The first real content connector is verified RSS import. Creators paste a public RSS feed, prove ownership with a ProoVra verification code on the feed/domain, then select feed items to monetize without allowing arbitrary third-party URLs.

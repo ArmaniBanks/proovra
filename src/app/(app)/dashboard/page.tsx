@@ -23,7 +23,6 @@ import type { CreatorContent, CreatorContentAccess } from "@/lib/mock-data";
 import { arcTestnetChain, hasPrivyConfig } from "@/lib/privy-config";
 import { formatUSDC } from "@/lib/utils";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
-import { CreatorPlatformPanel } from "@/components/auth/creator-platform-panel";
 
 const ARC_USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 
@@ -374,7 +373,6 @@ function CreatorDashboard({
         />
       </div>
 
-      <CreatorPlatformPanel />
       <RssVerificationStatus creatorWallet={walletAddress} />
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
@@ -418,7 +416,7 @@ function CreatorDashboard({
               No creator resources yet
             </p>
             <p className="mt-1 text-xs text-zinc-600">
-              Connect a platform or publish your first paid resource.
+              Verify an RSS feed or publish your first paid resource.
             </p>
           </div>
         )}

@@ -311,8 +311,8 @@ export default function CreatorContentPage() {
               Import public RSS content you control
             </h2>
             <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-500">
-              Works with public RSS from WordPress, Ghost, Substack, Beehiiv,
-              Medium, and personal blogs. ProoVra fetches recent public items,
+              Works with public RSS feeds from creator-owned sites and publishing
+              platforms. ProoVra fetches recent public items,
               then requires a verification code on the feed/domain before any
               item can be monetized.
             </p>

@@ -5,7 +5,6 @@ import type {
   Agent,
   CreatorContent,
   CreatorContentAccess,
-  CreatorPlatformConnection,
   CreatorRssVerification,
   DashboardStats,
   Receipt,
@@ -78,7 +77,6 @@ type PersistedDatabase = {
   x402Payments: X402PaymentRecord[];
   creatorContents: CreatorContent[];
   creatorContentAccesses: CreatorContentAccess[];
-  creatorPlatformConnections: CreatorPlatformConnection[];
   creatorRssVerifications: CreatorRssVerification[];
   activities: ActivityEvent[];
   stats: DashboardStats;
@@ -323,20 +321,6 @@ function reviveCreatorContentAccess(
   };
 }
 
-function reviveCreatorPlatformConnection(
-  connection: CreatorPlatformConnection
-): CreatorPlatformConnection {
-  return {
-    ...connection,
-    importedItems: (connection.importedItems ?? []).map((item) => ({
-      ...item,
-      publishedAt: item.publishedAt ? new Date(item.publishedAt) : undefined,
-    })),
-    connectedAt: new Date(connection.connectedAt),
-    updatedAt: new Date(connection.updatedAt),
-  };
-}
-
 function reviveCreatorRssVerification(
   verification: CreatorRssVerification
 ): CreatorRssVerification {
@@ -360,7 +344,6 @@ function createEmptyDatabase(): PersistedDatabase {
     x402Payments: [],
     creatorContents: [],
     creatorContentAccesses: [],
-    creatorPlatformConnections: [],
     creatorRssVerifications: [],
     activities: [],
     stats: {
@@ -392,9 +375,6 @@ function reviveDatabase(data: PersistedDatabase): PersistedDatabase {
     creatorContentAccesses: (data.creatorContentAccesses ?? []).map(
       reviveCreatorContentAccess
     ),
-    creatorPlatformConnections: (data.creatorPlatformConnections ?? []).map(
-      reviveCreatorPlatformConnection
-    ),
     creatorRssVerifications: (data.creatorRssVerifications ?? []).map(
       reviveCreatorRssVerification
     ),
@@ -419,7 +399,6 @@ export class ProoVraDatabase {
   x402Payments!: Map<string, X402PaymentRecord>;
   creatorContents!: Map<string, CreatorContent>;
   creatorContentAccesses!: Map<string, CreatorContentAccess>;
-  creatorPlatformConnections!: Map<string, CreatorPlatformConnection>;
   creatorRssVerifications!: Map<string, CreatorRssVerification>;
   activities!: ActivityEvent[];
   stats!: DashboardStats;
@@ -501,13 +480,6 @@ export class ProoVraDatabase {
       data.creatorContentAccesses.map((access) => [access.id, access]),
       persist
     );
-    this.creatorPlatformConnections = new PersistentMap(
-      data.creatorPlatformConnections.map((connection) => [
-        connection.id,
-        connection,
-      ]),
-      persist
-    );
     this.creatorRssVerifications = new PersistentMap(
       data.creatorRssVerifications.map((verification) => [
         verification.id,
@@ -563,9 +535,6 @@ export class ProoVraDatabase {
       x402Payments: Array.from(this.x402Payments.values()),
       creatorContents: Array.from(this.creatorContents.values()),
       creatorContentAccesses: Array.from(this.creatorContentAccesses.values()),
-      creatorPlatformConnections: Array.from(
-        this.creatorPlatformConnections.values()
-      ),
       creatorRssVerifications: Array.from(this.creatorRssVerifications.values()),
       activities: this.activities,
       stats: this.stats,
@@ -601,7 +570,6 @@ export const db =
   "x402Payments" in existingDb &&
   "creatorContents" in existingDb &&
   "creatorContentAccesses" in existingDb &&
-  "creatorPlatformConnections" in existingDb &&
   "creatorRssVerifications" in existingDb
     ? existingDb
     : new ProoVraDatabase();
