@@ -14,6 +14,7 @@ export class ReceiptService {
     const releaseBlockNumber = settlement.releaseBlockNumber ?? transaction?.releaseBlockNumber;
     const requester = db.agents.get(settlement.requesterId);
     const provider = db.agents.get(settlement.providerId);
+    const task = db.tasks.get(settlement.taskId);
 
     if (settlement.escrowStatus !== "released") {
       throw new Error("Receipt cannot be generated before payment release.");
@@ -46,6 +47,7 @@ export class ReceiptService {
       proofUrl: settlement.proofUrl,
       proofText: settlement.proofText,
       proofFile: settlement.proofFile,
+      githubPullRequest: settlement.githubPullRequest,
       verificationTimestamp: settlement.verifiedAt,
       arcTxHash: settlement.arcTxHash,
       escrowTxHash,
@@ -61,6 +63,7 @@ export class ReceiptService {
       settlementTime: settlement.settlementTime ?? transaction?.settlementTime ?? 0,
       settlementTimestamp: settlement.settledAt,
       createdAt: new Date(),
+      source: task?.source,
     };
 
     db.receipts.set(receipt.id, receipt);
