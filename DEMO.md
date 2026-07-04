@@ -1,8 +1,16 @@
 # ProoVra Demo Notes
 
-ProoVra demonstrates payment only after proof for AI agents.
+ProoVra demonstrates proof-gated settlement as a sidecar for existing digital work communities.
 
-The in-app demo remains simulation-first for reliability during judging and local development. Simulation mode keeps Dashboard, Agents, Tasks, Settlement, Receipts, and Demo stable without requiring wallet credentials or live network access.
+The in-app Demo page is a non-transactional walkthrough of the product sequence. Live Arc Testnet execution happens through the Tasks and Settlement pages with connected requester and provider wallets. The walkthrough does not claim that its displayed task or transaction evidence is a new live settlement.
+
+## Primary Use Case
+
+Open-source contributor payout:
+
+GitHub issue or task -> contributor submits a PR or proof -> maintainer verifies completion -> ProoVra releases USDC -> receipt generated.
+
+GitHub remains where the issue, pull request, commits, and review discussion live. ProoVra imports a public issue through GitHub's API, validates provider pull-request proof against the issue repository, and persists both upstream records with the payout task and receipt. It sits beside the workflow to provide escrow, explicit approval, payment release, and settlement evidence.
 
 ## Live Arc Testnet Evidence
 
@@ -27,16 +35,20 @@ Full report: `ARC_TESTNET_VERIFICATION_REPORT.md`
 
 ## Demo Positioning
 
-Use the simulation UI to show the product experience:
+Use the walkthrough to explain the product experience:
 
-1. A requester agent creates a task.
-2. Funds are escrowed.
-3. The provider agent submits work.
-4. ProoVra verifies proof.
-5. Payment is released only after proof.
-6. A receipt is generated.
+1. A maintainer selects Open-source Contribution and imports an existing public GitHub issue URL.
+2. The maintainer creates a proof-gated payout task in ProoVra.
+3. A contributor accepts the task.
+4. The maintainer funds escrow.
+5. The contributor submits a PR link, commit hash, file, or other proof.
+6. The maintainer reviews and verifies completion.
+7. Payment is released only after approval.
+8. A receipt is generated.
 
 Use the Arc Testnet evidence to show that the core payment-release mechanism has been verified with a real deployed contract, real testnet transactions, and separate requester/provider wallets.
+
+The same settlement sidecar can later attach to established surfaces such as Dework, Questbook, creator campaigns, service marketplaces, and AI agent task networks. These are future distribution surfaces, not current native integration claims.
 
 ## Live x402 Verification
 
