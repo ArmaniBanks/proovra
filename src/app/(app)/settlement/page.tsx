@@ -16,6 +16,9 @@ import {
   Receipt as ReceiptIcon,
   Activity,
   AlertCircle,
+  AlertTriangle,
+  ExternalLink,
+  GitPullRequest,
   type LucideIcon,
 } from "lucide-react";
 import type { Agent, ProofFile, Settlement, Task } from "@/lib/mock-data";
@@ -835,6 +838,74 @@ export default function SettlementPage() {
                         ) : <span className="text-zinc-600 italic">Awaiting submission</span>}
                       </DetailRow>
 
+                      {task?.source?.platform === "github" && (
+                        <DetailRow label="GitHub Issue">
+                          <a
+                            href={task.source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start justify-between gap-3 rounded border border-zinc-800 bg-zinc-900 p-2 text-xs hover:border-amber-500/30"
+                          >
+                            <span className="min-w-0">
+                              <span className="block font-medium text-amber-400">
+                                {task.source.externalId}
+                              </span>
+                              <span className="mt-1 block text-zinc-400">
+                                {task.source.title}
+                              </span>
+                            </span>
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                          </a>
+                        </DetailRow>
+                      )}
+
+                      {settlement.githubPullRequest && (
+                        <DetailRow label="GitHub Pull Request">
+                          <div className="space-y-2 rounded border border-zinc-800 bg-zinc-900 p-2 text-xs">
+                            <a
+                              href={settlement.githubPullRequest.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-start justify-between gap-3 text-amber-400 hover:text-amber-300"
+                            >
+                              <span>
+                                <span className="font-medium">
+                                  {settlement.githubPullRequest.repository}#
+                                  {settlement.githubPullRequest.pullRequestNumber}
+                                </span>
+                                <span className="mt-1 block text-zinc-300">
+                                  {settlement.githubPullRequest.title}
+                                </span>
+                              </span>
+                              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                            </a>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-zinc-500">
+                              <span>Author: {settlement.githubPullRequest.author}</span>
+                              <span>
+                                Status:{" "}
+                                {settlement.githubPullRequest.merged
+                                  ? "merged"
+                                  : settlement.githubPullRequest.state}
+                              </span>
+                              <span>
+                                Updated {formatTimeAgo(settlement.githubPullRequest.updatedAt)}
+                              </span>
+                            </div>
+                            {settlement.githubPullRequest.referencesIssue ? (
+                              <div className="flex items-center gap-1.5 text-emerald-400">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                PR references the imported issue.
+                              </div>
+                            ) : (
+                              <div className="flex items-start gap-1.5 text-amber-400">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                <span>{settlement.githubPullRequest.referenceWarning}</span>
+                              </div>
+                            )}
+                          </div>
+                        </DetailRow>
+                      )}
+
                       {settlement.proofFile && (
                         <DetailRow label="Proof File">
                           <div className="space-y-1 rounded border border-zinc-800 bg-zinc-900 p-2 text-xs text-zinc-400">
@@ -923,7 +994,11 @@ export default function SettlementPage() {
                             },
                           }))
                         }
-                        placeholder="Proof URL"
+                        placeholder={
+                          task?.source?.platform === "github"
+                            ? `GitHub Pull Request URL for ${task.source.repository}`
+                            : "Proof URL"
+                        }
                         className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-amber-500/50"
                       />
                       <input
@@ -940,6 +1015,19 @@ export default function SettlementPage() {
                         placeholder="Proof text"
                         className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-amber-500/50"
                       />
+                      {task?.source?.platform === "github" && (
+                        <div className="md:col-span-3 flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3 text-xs text-zinc-500">
+                          <GitPullRequest className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                          <span>
+                            Pull request proof must be public and belong to{" "}
+                            <span className="text-zinc-300">{task.source.repository}</span>.
+                            {task.source.issueNumber
+                              ? ` References such as fixes #${task.source.issueNumber} are detected automatically;`
+                              : " Issue-closing references are detected automatically;"}
+                            {" "}missing references remain reviewable with a warning.
+                          </span>
+                        </div>
+                      )}
                       <div className="md:col-span-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div>
