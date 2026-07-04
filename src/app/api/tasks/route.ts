@@ -4,6 +4,7 @@ import { TaskService } from "@/services/task.service";
 import { ReadModelService } from "@/services/read-model.service";
 import { AgentService } from "@/services/agent.service";
 import type { PricingModel, TaskStatus } from "@/lib/mock-data";
+import { getGitHubIssueSource } from "@/integrations/github";
 
 const pricingModels: PricingModel[] = [
   "per-task",
@@ -63,6 +64,14 @@ export async function POST(req: Request) {
   }
 
   try {
+    const source =
+      body.source?.platform === "github" && typeof body.source.url === "string"
+        ? await getGitHubIssueSource(body.source.url)
+        : undefined;
+    if (body.source !== undefined && !source) {
+      return NextResponse.json({ error: "Invalid task work source" }, { status: 400 });
+    }
+
     const task = TaskService.createTask({
       title: body.title,
       description: body.description,
@@ -73,6 +82,7 @@ export async function POST(req: Request) {
       deliverables: body.deliverables,
       verificationCriteria: body.verificationCriteria,
       deadline,
+      source,
     });
     await db.flush();
     return NextResponse.json({ task }, { status: 201 });
