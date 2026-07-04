@@ -11,6 +11,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  GitBranch,
   Link2,
   Receipt as ReceiptIcon,
   Share2,
@@ -142,6 +143,10 @@ export default function ReceiptsPage() {
       </div>
     </section>
     <div class="row"><span>Task Reference</span><strong>${escapeHtml(task?.title)}</strong></div>
+    ${(receipt.source ?? task?.source) ? `<div class="row"><span>Work Source</span><a href="${escapeHtml((receipt.source ?? task?.source)?.url)}">${escapeHtml((receipt.source ?? task?.source)?.externalId)}</a></div>` : ""}
+    ${receipt.githubPullRequest ? `<div class="row"><span>GitHub Pull Request</span><a href="${escapeHtml(receipt.githubPullRequest.url)}">${escapeHtml(`${receipt.githubPullRequest.repository}#${receipt.githubPullRequest.pullRequestNumber}`)}</a></div>
+    <div class="row"><span>PR Status</span><strong>${escapeHtml(receipt.githubPullRequest.merged ? "Merged" : receipt.githubPullRequest.state)}</strong></div>
+    <div class="row"><span>Issue Reference</span><strong>${escapeHtml(receipt.githubPullRequest.referencesIssue ? "Detected" : "Not declared - requester reviewed manually")}</strong></div>` : ""}
     <div class="row"><span>Network</span><strong>Arc Testnet</strong></div>
     <div class="row"><span>Payment Recipient</span><span class="mono">${escapeHtml(provider?.walletAddress)}</span></div>
     <div class="row"><span>Block Number</span><span class="mono">${escapeHtml(receipt.blockNumber)}</span></div>
@@ -353,6 +358,7 @@ function ReceiptDetail({
   const settlementTimestamp = receipt.settlementTimestamp ?? receipt.createdAt;
   const releaseHash = receipt.releaseTxHash ?? receipt.arcTxHash;
   const releaseLink = receipt.releaseExplorerLink ?? receipt.explorerLink;
+  const workSource = receipt.source ?? task?.source;
   const shareText = "ProoVra settlement receipt: verified proof authorized payment.";
   const receiptUrl = `${window.location.origin}/receipts?receipt=${encodeURIComponent(receipt.id)}`;
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
@@ -456,6 +462,40 @@ function ReceiptDetail({
           <ParticipantCard title="Requester" name={requester?.name ?? "Requester Agent"} walletAddress={requester?.walletAddress} />
           <ParticipantCard title="Provider" name={provider?.name ?? "Provider Agent"} walletAddress={provider?.walletAddress} />
         </section>
+
+        {workSource && (
+          <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 sm:p-5">
+            <SectionTitle icon={<GitBranch className="h-4 w-4 text-amber-500" />}>
+              GitHub Work Evidence
+            </SectionTitle>
+            <div className="mt-4 grid gap-3">
+              <EvidenceBlock
+                label="Original GitHub Issue"
+                value={`${workSource.externalId} - ${workSource.title}`}
+                detail={`Repository ${workSource.repository} - opened by ${workSource.author} - ${workSource.state}`}
+                href={workSource.url}
+                onCopy={() => onCopy(workSource.url)}
+              />
+              {receipt.githubPullRequest && (
+                <EvidenceBlock
+                  label="Validated GitHub Pull Request"
+                  value={`${receipt.githubPullRequest.repository}#${receipt.githubPullRequest.pullRequestNumber} - ${receipt.githubPullRequest.title}`}
+                  detail={[
+                    `Author ${receipt.githubPullRequest.author}`,
+                    receipt.githubPullRequest.merged
+                      ? "Merged"
+                      : `State ${receipt.githubPullRequest.state}`,
+                    receipt.githubPullRequest.referencesIssue
+                      ? "Issue-closing reference detected"
+                      : "No issue-closing reference declared; requester approved manually",
+                  ].join(" - ")}
+                  href={receipt.githubPullRequest.url}
+                  onCopy={() => onCopy(receipt.githubPullRequest?.url)}
+                />
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 sm:p-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
