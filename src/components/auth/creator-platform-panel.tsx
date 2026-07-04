@@ -1,141 +1,56 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
-  FileText,
-  Ghost,
-  Link2,
+  ExternalLink,
   Lock,
-  MessageSquare,
-  Rss,
+  RefreshCw,
+  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { hasPrivyConfig } from "@/lib/privy-config";
+import { formatUSDC } from "@/lib/utils";
 
-type Platform = "ghost" | "rsshub" | "discourse" | "docs";
-
-type PlatformProfile = {
-  id: Platform;
-  name: string;
-  label: string;
-  icon: React.ElementType;
-  audience: string;
-  reach: string;
-  unlock: string;
-  inputLabel: string;
-  placeholder: string;
-  path: string[];
-  sampleItems: string[];
+type ImportedItem = {
+  id: string;
+  title: string;
+  excerpt: string;
+  url: string;
+  body: string;
+  publishedAt?: string;
 };
 
-const platformProfiles: PlatformProfile[] = [
-  {
-    id: "ghost",
-    name: "Ghost",
-    label: "Best first wedge",
-    icon: Ghost,
-    audience: "Writers, newsletters, indie publications, research blogs",
-    reach: "Large creator ecosystem with feeds, members, newsletters, and public APIs.",
-    unlock:
-      "Paid agent reads, citation fees, research-note access, and premium archive licensing.",
-    inputLabel: "Ghost publication URL",
-    placeholder: "https://publication.example.com",
-    path: [
-      "Connect Ghost publication or public feed",
-      "Import posts and premium archive candidates",
-      "Select articles agents can pay to read or cite",
-      "Expose x402 endpoints for each selected article",
-    ],
-    sampleItems: [
-      "Premium market analysis post",
-      "Founder essay with original data",
-      "Newsletter archive agents can cite",
-    ],
-  },
-  {
-    id: "rsshub",
-    name: "RSS / RSSHub",
-    label: "Fastest onboarding",
-    icon: Rss,
-    audience: "Any creator with an RSS feed, blog, podcast notes, or public updates",
-    reach:
-      "Universal feed surface; RSSHub-style routes make many platforms agent-readable.",
-    unlock:
-      "Paid feeds, per-source citation tolls, and low-friction monetization for existing posts.",
-    inputLabel: "RSS feed or RSSHub route",
-    placeholder: "https://creator.example.com/rss.xml",
-    path: [
-      "Paste feed URL",
-      "Preview feed items",
-      "Pick content to monetize",
-      "Turn each item into a paid JSON endpoint",
-    ],
-    sampleItems: [
-      "Latest creator essay",
-      "Podcast research links",
-      "Public changelog agents monitor",
-    ],
-  },
-  {
-    id: "discourse",
-    name: "Discourse",
-    label: "Community knowledge",
-    icon: MessageSquare,
-    audience: "Communities with valuable threads, support answers, and expert discussions",
-    reach:
-      "Mature forum ecosystem with APIs and high-signal community knowledge bases.",
-    unlock:
-      "Paid access to best threads, accepted answers, gated categories, and source-grounded citations.",
-    inputLabel: "Discourse community URL",
-    placeholder: "https://forum.example.com",
-    path: [
-      "Connect community URL",
-      "Import public categories or selected threads",
-      "Mark high-value answers as paid agent sources",
-      "Route agent access through x402 receipts",
-    ],
-    sampleItems: [
-      "Solved technical support thread",
-      "Community research roundup",
-      "Expert answer agents can cite",
-    ],
-  },
-  {
-    id: "docs",
-    name: "Docs Site",
-    label: "Developer content",
-    icon: FileText,
-    audience: "SDK docs, API guides, tutorials, and technical explainers",
-    reach:
-      "Great for developer communities where agents already retrieve docs during coding tasks.",
-    unlock:
-      "Paid docs snippets, source citations, per-answer grounding fees, and agent usage analytics.",
-    inputLabel: "Docs sitemap or page URL",
-    placeholder: "https://docs.example.com/sitemap.xml",
-    path: [
-      "Connect sitemap or docs page",
-      "Import pages with canonical URLs",
-      "Select pages worth charging agents for",
-      "Expose paid markdown/JSON resources",
-    ],
-    sampleItems: [
-      "API authentication guide",
-      "Integration tutorial",
-      "Troubleshooting page agents often quote",
-    ],
-  },
-];
+type WordPressConnection = {
+  connected: true;
+  id: string;
+  creatorWallet: string;
+  platform: "wordpress";
+  platformAccountName: string;
+  siteId?: string;
+  siteName?: string;
+  siteUrl?: string;
+  importedItems: ImportedItem[];
+  connectedAt: string;
+  updatedAt: string;
+};
+
+type WordPressResponse = {
+  connection: WordPressConnection | null;
+  error?: string;
+};
+
+const DEFAULT_PRICE = "0.000001";
 
 export function CreatorPlatformPanel() {
   if (!hasPrivyConfig) {
     return (
-      <DisabledPlatformPanel reason="Configure Privy to unlock creator platform connections." />
+      <DisabledPlatformPanel reason="Configure Privy to unlock authenticated WordPress connection." />
     );
   }
 
-  return <PrivyPlatformPanel />;
+  return <PrivyWordPressPanel />;
 }
 
 function DisabledPlatformPanel({ reason }: { reason: string }) {
@@ -144,7 +59,7 @@ function DisabledPlatformPanel({ reason }: { reason: string }) {
       <div className="mb-3 flex items-center gap-2">
         <Lock className="h-4 w-4 text-zinc-500" />
         <h2 className="text-sm font-semibold text-zinc-100">
-          Connect Content Platform
+          Connect WordPress
         </h2>
       </div>
       <p className="text-sm leading-6 text-zinc-500">{reason}</p>
@@ -152,170 +67,243 @@ function DisabledPlatformPanel({ reason }: { reason: string }) {
   );
 }
 
-function PrivyPlatformPanel() {
-  const { authenticated } = usePrivy();
-  const { wallets } = useWallets();
-  const [platform, setPlatform] = useState<Platform>("ghost");
-  const [url, setUrl] = useState("");
-  const [connected, setConnected] = useState(false);
-  const selected = useMemo(
-    () => platformProfiles.find((profile) => profile.id === platform) ?? platformProfiles[0],
-    [platform]
-  );
+function PrivyWordPressPanel() {
+  const { authenticated, user } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
   const wallet =
     wallets.find((candidate) => candidate.walletClientType === "privy") ?? wallets[0];
-  const Icon = selected.icon;
+  const walletAddress = wallet?.address ?? "";
+  const creatorName = user?.email?.address ?? "WordPress creator";
+  const [connection, setConnection] = useState<WordPressConnection | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [monetizingId, setMonetizingId] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const loadConnection = useCallback(async () => {
+    if (!walletAddress) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/integrations/wordpress?creatorWallet=${encodeURIComponent(walletAddress)}`,
+        { cache: "no-store" }
+      );
+      const payload = (await response.json()) as WordPressResponse;
+      if (!response.ok) throw new Error(payload.error ?? "WordPress connection failed.");
+      setConnection(payload.connection);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "WordPress connection failed.");
+    } finally {
+      setLoading(false);
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    if (!authenticated || !walletsReady || !walletAddress) return;
+    const frame = window.requestAnimationFrame(() => {
+      void loadConnection();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [authenticated, loadConnection, walletAddress, walletsReady]);
 
   if (!authenticated) {
     return (
-      <DisabledPlatformPanel reason="Login with email first, then connect Ghost, RSS/RSSHub, Discourse, or docs sources from your creator dashboard." />
+      <DisabledPlatformPanel reason="Login with email first. Then connect your own WordPress account through OAuth so ProoVra can import only content you control." />
     );
+  }
+
+  if (!walletAddress) {
+    return (
+      <DisabledPlatformPanel reason="Generating your Privy embedded wallet. WordPress connection unlocks once the creator wallet is ready." />
+    );
+  }
+
+  function connectWordPress() {
+    window.location.href = `/api/integrations/wordpress/start?creatorWallet=${encodeURIComponent(walletAddress)}`;
+  }
+
+  async function monetizePost(item: ImportedItem) {
+    const price = Number(prices[item.id] ?? DEFAULT_PRICE);
+    if (!Number.isFinite(price) || price <= 0) {
+      setError("Enter a valid USDC price before monetizing this post.");
+      return;
+    }
+
+    setMonetizingId(item.id);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const response = await fetch("/api/integrations/wordpress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorWallet: walletAddress,
+          creatorName,
+          itemId: item.id,
+          price,
+        }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Post monetization failed.");
+      setSuccessMessage(`Published "${item.title}" as x402-paid content.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Post monetization failed.");
+    } finally {
+      setMonetizingId("");
+    }
   }
 
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-amber-300">
-            <Sparkles className="h-3.5 w-3.5" />
-            Acquisition wedge
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Verified platform connector
           </div>
           <h2 className="text-sm font-semibold text-zinc-100">
-            Connect a platform with creators we can actually reach
+            Connect your WordPress account
           </h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-500">
-            Start where creators already publish and where APIs, feeds, or plugins
-            make agent-readable monetization possible. ProoVra attaches x402
-            payments from the outside instead of asking creators to migrate.
+            ProoVra sends you to WordPress to approve access. After approval, we
+            import posts from the authenticated WordPress account only, so creators
+            cannot monetize someone else&apos;s content by pasting a URL.
           </p>
         </div>
-        {wallet && (
-          <span className="rounded-full border border-zinc-800 bg-zinc-950/60 px-3 py-1 font-mono text-[11px] text-zinc-400">
-            Arc wallet {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
-          </span>
-        )}
+        <button
+          type="button"
+          onClick={connectWordPress}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400"
+        >
+          <Sparkles className="h-4 w-4" />
+          {connection ? "Reconnect WordPress" : "Connect WordPress"}
+        </button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-4">
-        {platformProfiles.map((profile) => {
-          const ProfileIcon = profile.icon;
-          const active = profile.id === platform;
-          return (
-            <button
-              key={profile.id}
-              type="button"
-              onClick={() => {
-                setPlatform(profile.id);
-                setConnected(false);
-                setUrl("");
-              }}
-              className={`rounded-xl border p-4 text-left transition-colors ${
-                active
-                  ? "border-amber-500/40 bg-amber-500/10"
-                  : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700"
-              }`}
-            >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <ProfileIcon
-                  className={active ? "h-4 w-4 text-amber-400" : "h-4 w-4 text-zinc-500"}
-                />
-                <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2 py-0.5 text-[10px] text-zinc-500">
-                  {profile.label}
-                </span>
-              </div>
-              <p className="text-sm font-semibold text-zinc-100">{profile.name}</p>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">{profile.audience}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.85fr]">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <div className="mb-4 flex items-start gap-3">
-            <div className="rounded-lg bg-amber-500/10 p-2">
-              <Icon className="h-4 w-4 text-amber-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-zinc-100">
-                {selected.name} monetization path
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-zinc-500">
-                {selected.reach}
-              </p>
-            </div>
-          </div>
-          <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
-            <p className="text-xs font-medium text-amber-300">What ProoVra unlocks</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">{selected.unlock}</p>
-          </div>
-          <ol className="space-y-2">
-            {selected.path.map((step, index) => (
-              <li key={step} className="flex gap-3 text-xs leading-5 text-zinc-400">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 font-mono text-[10px] text-amber-300">
-                  {index + 1}
-                </span>
-                {step}
-              </li>
-            ))}
+      {!connection && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-5">
+          <h3 className="text-sm font-semibold text-zinc-100">
+            Why WordPress first?
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-500">
+            WordPress.com and Jetpack-connected WordPress sites give us real OAuth,
+            real post APIs, and a huge creator/blogger base. This is the simplest
+            path to test with your own profile today.
+          </p>
+          <ol className="mt-4 space-y-2 text-xs leading-5 text-zinc-400">
+            <li>1. Create or use your WordPress.com account.</li>
+            <li>2. Click Connect WordPress and approve ProoVra.</li>
+            <li>3. Return to this dashboard and see your imported posts.</li>
+            <li>4. Monetize selected posts as x402-paid agent resources.</li>
           </ol>
         </div>
+      )}
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <label className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            {selected.inputLabel}
-          </label>
-          <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <input
-              value={url}
-              onChange={(event) => {
-                setUrl(event.target.value);
-                setConnected(false);
-              }}
-              placeholder={selected.placeholder}
-              className="rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
-            />
-            <button
-              type="button"
-              disabled={!url.trim()}
-              onClick={() => setConnected(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
-            >
-              {connected ? <CheckCircle2 className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-              {connected ? "Connected" : "Connect"}
-            </button>
+      {connection && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  WordPress connected
+                </div>
+                <p className="text-xs leading-5 text-zinc-400">
+                  {connection.platformAccountName}
+                  {connection.siteName ? ` · ${connection.siteName}` : ""}
+                </p>
+                {connection.siteUrl && (
+                  <a
+                    href={connection.siteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-xs text-amber-300 hover:text-amber-200"
+                  >
+                    Open site
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadConnection()}
+                disabled={loading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-amber-500/30 hover:text-amber-300 disabled:text-zinc-700"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                {loading ? "Refreshing" : "Refresh posts"}
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
-            <p className="text-xs font-medium text-zinc-300">Import preview</p>
-            <div className="mt-3 space-y-2">
-              {selected.sampleItems.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2"
-                >
-                  <span className="text-xs text-zinc-400">{item}</span>
-                  <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300">
-                    x402 ready
-                  </span>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/40">
+            <div className="border-b border-zinc-800 px-4 py-3">
+              <h3 className="text-sm font-semibold text-zinc-100">
+                Imported WordPress posts
+              </h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                These posts came from the WordPress account you authenticated.
+              </p>
+            </div>
+            <div className="divide-y divide-zinc-800/60">
+              {connection.importedItems.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-zinc-500">
+                  No published WordPress posts were returned for this site.
+                </div>
+              )}
+              {connection.importedItems.map((item) => (
+                <div key={item.id} className="grid gap-4 px-4 py-4 lg:grid-cols-[1fr_220px]">
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-100">{item.title}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500">
+                      {item.excerpt || item.body}
+                    </p>
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-amber-300 hover:text-amber-200"
+                    >
+                      Source post
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      value={prices[item.id] ?? DEFAULT_PRICE}
+                      onChange={(event) =>
+                        setPrices((current) => ({
+                          ...current,
+                          [item.id]: event.target.value,
+                        }))
+                      }
+                      inputMode="decimal"
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2 font-mono text-xs text-zinc-100 outline-none focus:border-amber-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void monetizePost(item)}
+                      disabled={monetizingId === item.id}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+                    >
+                      {monetizingId === item.id
+                        ? "Publishing"
+                        : `Monetize at ${formatUSDC(Number(prices[item.id] ?? DEFAULT_PRICE))}`}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-
-          {connected && (
-            <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
-              <p className="text-xs font-medium text-emerald-300">
-                {selected.name} source connected
-              </p>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">
-                Next: pick imported items, set a per-access USDC price, and publish
-                x402 endpoints for agents to pay before reading or citing.
-              </p>
-            </div>
-          )}
         </div>
-      </div>
+      )}
+
+      {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+      {successMessage && (
+        <p className="mt-3 text-xs text-emerald-300">{successMessage}</p>
+      )}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import type {
   Agent,
   CreatorContent,
   CreatorContentAccess,
+  CreatorPlatformConnection,
   DashboardStats,
   Receipt,
   Settlement,
@@ -76,6 +77,7 @@ type PersistedDatabase = {
   x402Payments: X402PaymentRecord[];
   creatorContents: CreatorContent[];
   creatorContentAccesses: CreatorContentAccess[];
+  creatorPlatformConnections: CreatorPlatformConnection[];
   activities: ActivityEvent[];
   stats: DashboardStats;
 };
@@ -319,6 +321,20 @@ function reviveCreatorContentAccess(
   };
 }
 
+function reviveCreatorPlatformConnection(
+  connection: CreatorPlatformConnection
+): CreatorPlatformConnection {
+  return {
+    ...connection,
+    importedItems: (connection.importedItems ?? []).map((item) => ({
+      ...item,
+      publishedAt: item.publishedAt ? new Date(item.publishedAt) : undefined,
+    })),
+    connectedAt: new Date(connection.connectedAt),
+    updatedAt: new Date(connection.updatedAt),
+  };
+}
+
 function createEmptyDatabase(): PersistedDatabase {
   return {
     version: 4,
@@ -331,6 +347,7 @@ function createEmptyDatabase(): PersistedDatabase {
     x402Payments: [],
     creatorContents: [],
     creatorContentAccesses: [],
+    creatorPlatformConnections: [],
     activities: [],
     stats: {
       totalSettled: 0,
@@ -361,6 +378,9 @@ function reviveDatabase(data: PersistedDatabase): PersistedDatabase {
     creatorContentAccesses: (data.creatorContentAccesses ?? []).map(
       reviveCreatorContentAccess
     ),
+    creatorPlatformConnections: (data.creatorPlatformConnections ?? []).map(
+      reviveCreatorPlatformConnection
+    ),
     activities: (data.activities ?? []).map(reviveActivity),
     stats: { ...createEmptyDatabase().stats, ...(data.stats ?? {}) },
   };
@@ -382,6 +402,7 @@ export class ProoVraDatabase {
   x402Payments!: Map<string, X402PaymentRecord>;
   creatorContents!: Map<string, CreatorContent>;
   creatorContentAccesses!: Map<string, CreatorContentAccess>;
+  creatorPlatformConnections!: Map<string, CreatorPlatformConnection>;
   activities!: ActivityEvent[];
   stats!: DashboardStats;
 
@@ -462,6 +483,13 @@ export class ProoVraDatabase {
       data.creatorContentAccesses.map((access) => [access.id, access]),
       persist
     );
+    this.creatorPlatformConnections = new PersistentMap(
+      data.creatorPlatformConnections.map((connection) => [
+        connection.id,
+        connection,
+      ]),
+      persist
+    );
     this.activities = [...data.activities].sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
     );
@@ -510,6 +538,9 @@ export class ProoVraDatabase {
       x402Payments: Array.from(this.x402Payments.values()),
       creatorContents: Array.from(this.creatorContents.values()),
       creatorContentAccesses: Array.from(this.creatorContentAccesses.values()),
+      creatorPlatformConnections: Array.from(
+        this.creatorPlatformConnections.values()
+      ),
       activities: this.activities,
       stats: this.stats,
     };
@@ -543,7 +574,8 @@ export const db =
   "settlementTransactions" in existingDb &&
   "x402Payments" in existingDb &&
   "creatorContents" in existingDb &&
-  "creatorContentAccesses" in existingDb
+  "creatorContentAccesses" in existingDb &&
+  "creatorPlatformConnections" in existingDb
     ? existingDb
     : new ProoVraDatabase();
 

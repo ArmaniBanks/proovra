@@ -215,7 +215,7 @@ export interface DashboardStats {
 }
 
 export type CreatorContentStatus = "draft" | "published" | "paused";
-export type CreatorContentSource = "manual" | "rss" | "ghost" | "docs";
+export type CreatorContentSource = "manual" | "rss" | "ghost" | "docs" | "wordpress";
 
 export interface CreatorContent {
   id: string;
@@ -244,4 +244,27 @@ export interface CreatorContentAccess {
   currency: "USDC";
   status: "settled";
   accessedAt: Date;
+}
+
+export interface CreatorPlatformImportedItem {
+  id: string;
+  title: string;
+  excerpt: string;
+  url: string;
+  body: string;
+  publishedAt?: Date;
+}
+
+export interface CreatorPlatformConnection {
+  id: string;
+  creatorWallet: string;
+  platform: "wordpress";
+  platformAccountName: string;
+  accessToken: string;
+  siteId?: string;
+  siteName?: string;
+  siteUrl?: string;
+  importedItems: CreatorPlatformImportedItem[];
+  connectedAt: Date;
+  updatedAt: Date;
 }

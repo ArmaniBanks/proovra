@@ -22,6 +22,7 @@ The product also touches autonomous paying agents and paid agent services:
 - Frontend: Next.js app with creator-focused landing, dashboard, and content publisher UI.
 - Login: Privy email authentication for creator accounts.
 - Wallets: Privy embedded Ethereum wallets generated for creators and configured around Arc Testnet.
+- Connector: WordPress.com / Jetpack WordPress OAuth imports posts only after the creator approves access from their own WordPress account.
 - Persistence: local JSON in development, Vercel KV-compatible adapter in production.
 - Content records: title, description, body, creator name, payout wallet, source type, source URL, price, status, access count, and earnings.
 - Paid endpoint: `GET /api/creator-content/[id]/access`.
