@@ -10,6 +10,7 @@ import {
   type PricingModel,
   type Task,
   type TaskStatus,
+  type WorkSource,
 } from "@/lib/mock-data";
 import { formatUSDC, formatTimeAgo, cn } from "@/lib/utils";
 import { areSameWallet } from "@/lib/wallet-validation";
@@ -27,6 +28,9 @@ import {
   DollarSign,
   Timer,
   Plus,
+  GitBranch,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 // ── Status helpers ────────────────────────────────────────────
@@ -529,6 +533,26 @@ function TaskCard({
         </div>
       </div>
 
+      {task.source && (
+        <a
+          href={task.source.url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-xs transition-colors hover:border-amber-500/30"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <GitBranch className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+            <span className="truncate text-zinc-300">
+              {task.source.externalId} · {task.source.title}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1 text-amber-400">
+            Source
+            <ExternalLink className="h-3 w-3" />
+          </span>
+        </a>
+      )}
+
       {/* Milestones bar */}
       {task.milestones && task.milestones.length > 0 && (
         <div className="mt-3">
@@ -620,6 +644,10 @@ export default function TasksPage() {
   const [localTasksById, setLocalTasksById] = useState<Record<string, Task>>({});
   const [localAgentsById, setLocalAgentsById] = useState<Record<string, Agent>>({});
   const [selectedProfileId, setSelectedProfileId] = useState("");
+  const [githubIssueUrl, setGithubIssueUrl] = useState("");
+  const [importedSource, setImportedSource] = useState<WorkSource>();
+  const [sourceAction, setSourceAction] = useState<"importing" | "">("");
+  const [sourceError, setSourceError] = useState("");
   const [taskForm, setTaskForm] = useState<{
     title: string;
     requesterId: string;
@@ -677,7 +705,8 @@ export default function TasksPage() {
       selectedRequesterId &&
       connectedRequesterMatchesSelection &&
       Number(taskForm.amount) > 0 &&
-      taskForm.verificationCriteria.trim()
+      taskForm.verificationCriteria.trim() &&
+      (selectedProfileId !== "open-source-contribution" || Boolean(importedSource))
   );
 
   useEffect(() => {
@@ -734,6 +763,7 @@ export default function TasksPage() {
           deliverables: taskForm.verificationCriteria,
           verificationCriteria: taskForm.verificationCriteria,
           deadline,
+          source: importedSource,
         }),
       });
 
@@ -756,6 +786,8 @@ export default function TasksPage() {
         verificationCriteria: "",
       });
       setSelectedProfileId("");
+      setGithubIssueUrl("");
+      setImportedSource(undefined);
       setActiveFilter("open");
       if (payload.task?.id) {
         router.replace(`/tasks?task=${encodeURIComponent(payload.task.id)}`);
@@ -765,6 +797,42 @@ export default function TasksPage() {
       setFormError(error instanceof Error ? error.message : "Task creation failed");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function importGitHubIssue() {
+    if (!githubIssueUrl.trim()) return;
+
+    setSourceAction("importing");
+    setSourceError("");
+    try {
+      const response = await fetch("/api/integrations/github/issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: githubIssueUrl.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        source?: WorkSource;
+        suggestedTaskTitle?: string;
+        suggestedProofRequirement?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.source) {
+        throw new Error(payload.error || "GitHub issue import failed.");
+      }
+
+      setImportedSource(payload.source);
+      setTaskForm((form) => ({
+        ...form,
+        title: payload.suggestedTaskTitle || form.title,
+        verificationCriteria:
+          payload.suggestedProofRequirement || form.verificationCriteria,
+      }));
+    } catch (error) {
+      setImportedSource(undefined);
+      setSourceError(error instanceof Error ? error.message : "GitHub issue import failed.");
+    } finally {
+      setSourceAction("");
     }
   }
 
@@ -939,6 +1007,9 @@ export default function TasksPage() {
                 (candidate) => candidate.id === event.target.value
               );
               setSelectedProfileId(event.target.value);
+              setImportedSource(undefined);
+              setGithubIssueUrl("");
+              setSourceError("");
               if (!profile) return;
               setTaskForm((form) => ({
                 ...form,
@@ -981,6 +1052,58 @@ export default function TasksPage() {
                   {selectedProfile.verificationChecklist.join(" · ")}
                 </p>
               </div>
+            </div>
+          )}
+          {selectedProfile?.id === "open-source-contribution" && (
+            <div className="mt-4 border-t border-zinc-800 pt-4">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <GitBranch className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                  <input
+                    value={githubIssueUrl}
+                    onChange={(event) => {
+                      setGithubIssueUrl(event.target.value);
+                      setImportedSource(undefined);
+                      setSourceError("");
+                    }}
+                    placeholder="https://github.com/owner/repository/issues/123"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 py-2 pl-9 pr-3 text-sm text-zinc-100 outline-none transition-colors placeholder:text-zinc-600 focus:border-amber-500/50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={importGitHubIssue}
+                  disabled={!githubIssueUrl.trim() || sourceAction === "importing"}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+                >
+                  {sourceAction === "importing" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <GitBranch className="h-4 w-4" />
+                  )}
+                  {sourceAction === "importing" ? "Importing" : "Import Issue"}
+                </button>
+              </div>
+              {importedSource && (
+                <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs">
+                  <div className="min-w-0">
+                    <p className="font-medium text-emerald-300">
+                      {importedSource.externalId}
+                    </p>
+                    <p className="mt-1 truncate text-zinc-300">{importedSource.title}</p>
+                    <p className="mt-1 text-zinc-500">
+                      Opened by {importedSource.author} · {importedSource.state}
+                    </p>
+                  </div>
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                </div>
+              )}
+              {sourceError && <p className="mt-2 text-xs text-red-400">{sourceError}</p>}
+              {!importedSource && !sourceError && (
+                <p className="mt-2 text-xs text-zinc-500">
+                  Import the public issue so ProoVra settles work from the existing GitHub workflow.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -1090,6 +1213,8 @@ export default function TasksPage() {
               ? "Connect wallet to create tasks."
               : !connectedRequesterMatchesSelection
               ? "Connect the requester wallet selected above to create this task."
+              : selectedProfileId === "open-source-contribution" && !importedSource
+              ? "Import the public GitHub issue before creating this settlement task."
               : "Fill the task name and proof requirement to enable task creation."}
           </p>
         )}
