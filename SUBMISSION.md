@@ -2,9 +2,21 @@
 
 ## Project
 
-ProoVra: payment only after proof for AI agents.
+ProoVra: proof-gated settlement for verified digital work.
 
-ProoVra is an escrow and settlement layer for AI-to-AI commerce on Arc. Requester wallets create open tasks and fund escrow. Provider wallets accept tasks, submit proof, and receive payment only after requester approval.
+ProoVra is a settlement sidecar for existing digital work communities. It adds Arc Testnet USDC escrow, proof review, payment release, and persistent receipts to workflows where tasks and completion evidence already exist. ProoVra is not trying to create a marketplace from zero; it supplies the approval-to-payment layer beside the tools communities already use.
+
+## Distribution-First Positioning
+
+The first use case is open-source contributor payout:
+
+GitHub issue or task -> contributor submits a PR or proof -> maintainer verifies completion -> ProoVra releases USDC -> receipt generated.
+
+GitHub remains the source of issues, pull requests, commits, and review context. The Open-source Contribution profile imports and validates a public GitHub issue through GitHub's API. Provider PR proof is validated against the same repository, enriched with author/state/merge metadata, checked for issue-closing references, and carried with the issue into the final receipt. ProoVra records the participants, holds escrow, captures maintainer approval, releases payment, and generates settlement evidence.
+
+This sidecar model follows the distribution thesis in Canteen's [The Distribution Bootstrap for Payments Founders](https://thecanteenapp.com/analysis/2026/05/28/distribution-bootstrap-payments-founders.html): attach payment infrastructure to communities and public workflow surfaces that already have users and settlement-grade evidence.
+
+Future attachment surfaces include Dework, Questbook, creator campaigns, service marketplaces, and AI agent task networks. These are expansion targets for the same portable settlement core, not current native integration claims.
 
 ## Current Build
 
@@ -12,7 +24,7 @@ ProoVra is an escrow and settlement layer for AI-to-AI commerce on Arc. Requeste
 - Persistence: Vercel KV in production, local JSON in development.
 - Proof file storage: Vercel Blob in production, local uploads in development.
 - Agents: requester and provider identities are registered from connected wallets.
-- Tasks: requesters create open proof-gated tasks.
+- Tasks: requesters create proof-gated payout tasks that can reference work originating in an existing community.
 - Provider acceptance: providers can accept open tasks without being pre-selected.
 - Proof submission: supports proof text, proof URLs, proof hashes, and uploaded files.
 - Settlement: requesters fund escrow and release payment through Arc Testnet wallet-signed transactions.
@@ -95,7 +107,7 @@ The Circle CLI supports agent wallets, x402-compatible payments, and USDC workfl
 
 ## What This Proves
 
-The deployed `SettlementEscrow` contract accepted an escrow deposit, associated the escrow with a provider recipient, stored proof metadata, and released USDC only after proof approval.
+The deployed `SettlementEscrow` contract accepted an escrow deposit, associated the escrow with a provider recipient, stored proof metadata, and released USDC only after proof approval. The product demonstrates how that settlement primitive can sit beside an existing contributor workflow rather than replacing it.
 
 The x402 protected endpoint rejects unpaid access with `402`, rejects fake payment headers, and returns protected proof data only after verified Circle CLI x402 authorization.
 
@@ -113,16 +125,17 @@ The x402 protected endpoint rejects unpaid access with `402`, rejects fake payme
 
 ## Demo Recommendation
 
-Show the product workflow in the app:
+Show the open-source contributor workflow in the app:
 
-1. Register requester agent.
-2. Create open task.
-3. Connect provider wallet.
-4. Accept task.
-5. Fund escrow from requester wallet.
-6. Submit provider proof.
-7. Approve proof as requester.
-8. Release payment.
-9. Open the generated receipt.
+1. Start from a GitHub issue or repository task.
+2. Register the maintainer as a requester agent.
+3. Select Open-source Contribution, import the public issue URL, and create the payout task from the validated source.
+4. Connect the contributor wallet.
+5. Accept the task.
+6. Fund escrow from the maintainer wallet.
+7. Submit a PR link, commit hash, file, or summary as contributor proof.
+8. Approve proof as the maintainer.
+9. Release payment.
+10. Open the generated receipt.
 
 Then show the ArcScan links, x402 evidence, and verification report as proof that the core settlement and authorization paths have been executed.
