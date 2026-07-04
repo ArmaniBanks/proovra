@@ -258,8 +258,21 @@ export class RssImportService {
       targets.unshift(candidate);
     }
 
+    const failures: string[] = [];
+
     for (const target of targets) {
-      const text = await fetchPublicText(target);
+      let text = "";
+      try {
+        text = await fetchPublicText(target);
+      } catch (error) {
+        failures.push(
+          `${target.hostname}: ${
+            error instanceof Error ? error.message : "fetch failed"
+          }`
+        );
+        continue;
+      }
+
       if (text.includes(verification.verificationCode)) {
         verification.status = "verified";
         verification.verifiedAt = new Date();
@@ -269,7 +282,11 @@ export class RssImportService {
       }
     }
 
-    throw new Error("Verification code was not found on the feed, homepage, or verification page.");
+    throw new Error(
+      failures.length > 0
+        ? `Verification code was not found. Some public checks failed: ${failures.join("; ")}.`
+        : "Verification code was not found on the feed, homepage, or verification page."
+    );
   }
 
   static async monetizeItem(input: {

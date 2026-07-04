@@ -383,7 +383,9 @@ export default function CreatorContentPage() {
                 <p className="mt-1 text-xs leading-5 text-zinc-500">
                   Add this code to a new RSS item, your site homepage/meta tag,
                   or a public page on the same domain. ProoVra must find it
-                  before monetization is enabled.
+                  before monetization is enabled. If the code is already inside
+                  a post that appears in this feed, you can leave the page URL
+                  blank and verify from the feed.
                 </p>
               </div>
             </div>
