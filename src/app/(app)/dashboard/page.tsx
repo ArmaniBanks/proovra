@@ -187,8 +187,8 @@ export default function DashboardPage() {
       <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5">
         <h2 className="text-sm font-semibold text-zinc-100">Settlement Profiles</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">
-          Use the same ProoVra settlement engine across open-source bounties,
-          creator campaigns, research reviews, audits, and agent tasks.
+          Attach the same ProoVra settlement sidecar to existing workflows,
+          starting with open-source contributor payouts and extending to campaigns, reviews, audits, and agent tasks.
         </p>
       </div>
 
