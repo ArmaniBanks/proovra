@@ -22,6 +22,10 @@ type PaidContentResponse = {
   [key: string]: unknown;
 };
 
+function amountToBaseUnits(amount: number) {
+  return BigInt(Math.max(1, Math.round(amount * 1_000_000)));
+}
+
 function getBaseUrl(req: Request) {
   const url = new URL(req.url);
   return process.env.NEXT_PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
@@ -64,6 +68,18 @@ export async function POST(req: Request) {
         ? { rpcUrl: process.env.PROOVRA_AGENT_RPC_URL }
         : {}),
     });
+    const balances = await client.getBalances();
+    const amountRequired = amountToBaseUnits(content.price);
+    if (balances.gateway.available < amountRequired) {
+      return NextResponse.json(
+        {
+          error:
+            "Agent Circle Gateway balance is insufficient. Deposit Arc Testnet USDC into Circle Gateway for PROOVRA_AGENT_PRIVATE_KEY before paying.",
+        },
+        { status: 402 }
+      );
+    }
+
     const accessUrl = `${getBaseUrl(req)}/api/creator-content/${content.id}/access`;
     const result = await client.pay<PaidContentResponse>(accessUrl);
 
