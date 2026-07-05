@@ -252,18 +252,36 @@ export class RssImportService {
       throw new Error("Prepare the RSS import before verifying ownership.");
     }
 
-    const targets = [
-      normalizeUrl(verification.feedUrl),
-      new URL(`${normalizeUrl(verification.feedUrl).origin}/`),
-    ];
+    const feedUrl = normalizeUrl(verification.feedUrl);
+    const targets: URL[] = [];
+    const seenTargets = new Set<string>();
+    const addTarget = (target: URL) => {
+      const key = target.toString();
+      if (seenTargets.has(key)) return;
+      seenTargets.add(key);
+      targets.push(target);
+    };
 
     if (input.verificationUrl) {
       const candidate = normalizeUrl(input.verificationUrl);
       if (!sameDomainOrSubdomain(candidate.toString(), verification.domain)) {
         throw new Error("Verification page must be on the RSS feed domain.");
       }
-      targets.unshift(candidate);
+      addTarget(candidate);
     }
+
+    addTarget(feedUrl);
+
+    try {
+      const feed = await this.fetchFeed(verification.feedUrl);
+      for (const item of feed.items) {
+        addTarget(normalizeUrl(item.link));
+      }
+    } catch {
+      // The raw feed target above will report the fetch/parse failure if needed.
+    }
+
+    addTarget(new URL(`${feedUrl.origin}/`));
 
     const failures: string[] = [];
 

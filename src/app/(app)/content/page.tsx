@@ -422,9 +422,9 @@ export default function CreatorContentPage() {
                 {rssVerification.domain.includes("medium.com") && (
                   <p className="mt-2 text-xs leading-5 text-amber-300">
                     Medium tip: publish a short public Medium story containing
-                    this code, fetch the feed again, then verify. Medium may
-                    block homepage checks, but the RSS feed can still prove
-                    ownership.
+                    this code, fetch the feed again, then verify. Your Medium bio
+                    is not part of the RSS feed, and Medium may block homepage
+                    checks, so a public story is the most reliable proof.
                   </p>
                 )}
               </div>
