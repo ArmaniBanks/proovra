@@ -370,7 +370,7 @@ function CreatorDashboard({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
               <p className="text-[11px] uppercase tracking-wider text-zinc-600">
                 Wallet USDC

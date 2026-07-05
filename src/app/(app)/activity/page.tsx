@@ -193,7 +193,7 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
           )}
         </div>
       </div>
-      <div className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-right sm:grid-cols-3 lg:min-w-[320px]">
+      <div className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-left sm:grid-cols-3 sm:text-right lg:min-w-[320px]">
         <MiniStat label="Price" value={formatUSDC(event.price)} />
         <MiniStat
           label={paid ? "Paid" : "Accesses"}

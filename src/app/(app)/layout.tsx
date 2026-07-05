@@ -6,10 +6,10 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen">
       <Sidebar />
-      <main className="ml-[220px] flex-1 min-h-screen">
-        <div className="mx-auto max-w-[1200px] px-8 py-6">
+      <main className="min-h-screen pb-24 lg:ml-[220px] lg:pb-0">
+        <div className="mx-auto w-full max-w-[1200px] px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
           {children}
         </div>
       </main>

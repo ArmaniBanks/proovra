@@ -140,7 +140,7 @@ export default function DocsPage() {
 
           <DocSection id="rss-feed-urls" title="Supported RSS Feed URLs" icon={Rss}>
             <div className="overflow-hidden rounded-xl border border-zinc-800">
-              <div className="grid grid-cols-[0.7fr_1.4fr_1.4fr] border-b border-zinc-800 bg-zinc-950 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              <div className="hidden border-b border-zinc-800 bg-zinc-950 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 lg:grid lg:grid-cols-[0.7fr_1.4fr_1.4fr]">
                 <span>Platform</span>
                 <span>Feed format</span>
                 <span>Notes</span>

@@ -320,11 +320,11 @@ export default function CreatorContentPage() {
               Creator Content
             </h1>
           </div>
-          <p className="ml-[42px] text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-zinc-500 sm:ml-[42px]">
             Turn creator-owned writing, docs, or feeds into x402-paid APIs for agents.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-right sm:flex sm:items-center sm:gap-4">
+        <div className="grid grid-cols-2 gap-2 text-left sm:flex sm:items-center sm:gap-4 sm:text-right">
           <Metric label="Published" value={summary?.publishedCount ?? 0} />
           <Metric label="Accesses" value={summary?.totalAccesses ?? 0} />
           <Metric label="Earned" value={formatUSDC(summary?.totalEarned ?? 0)} />
@@ -386,7 +386,7 @@ export default function CreatorContentPage() {
               !form.creatorWallet.trim() ||
               rssAction === "preparing"
             }
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600 lg:w-auto"
           >
             {rssAction === "preparing" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -522,7 +522,7 @@ export default function CreatorContentPage() {
               onChange={(event) => setRssPayoutWallet(event.target.value)}
               readOnly={Boolean(privyWalletAddress)}
               placeholder="Payout wallet"
-              className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+              className="min-w-0 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
             />
             <button
               type="button"
@@ -532,7 +532,7 @@ export default function CreatorContentPage() {
                 rssVerification?.status !== "verified" ||
                 rssAction === "monetizing"
               }
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600 lg:w-auto"
             >
               {rssAction === "monetizing" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -554,7 +554,7 @@ export default function CreatorContentPage() {
         onSubmit={createContent}
         className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-5"
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-sm font-semibold text-zinc-100">
               Publish Paid Agent Resource

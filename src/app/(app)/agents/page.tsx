@@ -297,7 +297,7 @@ function ResourceCard({
             {resource.access.url}
           </code>
         </div>
-        <div className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 lg:w-64">
+        <div className="w-full shrink-0 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4 lg:w-64">
           <p className="text-[11px] uppercase tracking-wider text-zinc-600">
             Price
           </p>
