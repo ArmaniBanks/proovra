@@ -143,6 +143,8 @@ function CreatorDashboard({
   const [profileUsername, setProfileUsername] = useState("");
   const [profileStatus, setProfileStatus] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileRegistered, setProfileRegistered] = useState(false);
+  const [profileEditing, setProfileEditing] = useState(true);
 
   const summary = data?.summary;
   const contents = data?.contents ?? [];
@@ -197,6 +199,8 @@ function CreatorDashboard({
         if (!active || !payload.profile) return;
         setProfileDisplayName(payload.profile.displayName);
         setProfileUsername(payload.profile.username);
+        setProfileRegistered(true);
+        setProfileEditing(false);
       } catch {
         // The dashboard stays usable even before a public profile is created.
       }
@@ -268,6 +272,8 @@ function CreatorDashboard({
       if (payload.profile) {
         setProfileDisplayName(payload.profile.displayName);
         setProfileUsername(payload.profile.username);
+        setProfileRegistered(true);
+        setProfileEditing(false);
       }
       setProfileStatus("Public creator profile saved.");
     } catch (error) {
@@ -426,29 +432,63 @@ function CreatorDashboard({
               Saving also updates existing content tied to this wallet.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={saveProfile}
-            disabled={!walletAddress || profileSaving}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-zinc-950 transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
-          >
-            {profileSaving ? "Saving" : "Save Profile"}
-          </button>
+          {profileRegistered && !profileEditing ? (
+            <button
+              type="button"
+              onClick={() => {
+                setProfileStatus("");
+                setProfileEditing(true);
+              }}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950/60 px-4 py-2 text-xs font-semibold text-zinc-200 transition-colors hover:border-amber-500/40 hover:text-amber-300"
+            >
+              Edit Profile
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={saveProfile}
+              disabled={!walletAddress || profileSaving}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-zinc-950 transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
+            >
+              {profileSaving ? "Saving" : "Save Profile"}
+            </button>
+          )}
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <input
-            value={profileDisplayName}
-            onChange={(event) => setProfileDisplayName(event.target.value)}
-            placeholder="Public display name, e.g. Nald"
-            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
-          />
-          <input
-            value={profileUsername}
-            onChange={(event) => setProfileUsername(event.target.value)}
-            placeholder="username, e.g. 0xnald"
-            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
-          />
-        </div>
+        {profileRegistered && !profileEditing ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                Display name
+              </p>
+              <p className="mt-1 text-sm font-semibold text-zinc-100">
+                {profileDisplayName}
+              </p>
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                Username
+              </p>
+              <p className="mt-1 font-mono text-sm font-semibold text-amber-300">
+                @{profileUsername}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            <input
+              value={profileDisplayName}
+              onChange={(event) => setProfileDisplayName(event.target.value)}
+              placeholder="Public display name, e.g. Nald"
+              className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+            />
+            <input
+              value={profileUsername}
+              onChange={(event) => setProfileUsername(event.target.value)}
+              placeholder="username, e.g. 0xnald"
+              className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+            />
+          </div>
+        )}
         {profileStatus && (
           <p
             className={`mt-3 text-xs ${
