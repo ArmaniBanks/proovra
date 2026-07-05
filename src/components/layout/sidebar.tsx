@@ -4,13 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bot,
+  History,
   LayoutDashboard,
   ExternalLink,
+  Newspaper,
 } from "lucide-react";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/content", label: "Content", icon: Newspaper },
+  { href: "/activity", label: "Activity", icon: History },
   { href: "/agents", label: "Agents", icon: Bot },
 ];
 
