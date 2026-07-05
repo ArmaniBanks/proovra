@@ -122,6 +122,12 @@ function getDatabaseKey() {
   return process.env.PROOVRA_KV_DB_KEY || "proovra:database:v3";
 }
 
+function getStorageSignature() {
+  return hasVercelKv()
+    ? `kv:${process.env.KV_REST_API_URL?.trim()}:${getDatabaseKey()}`
+    : `file:${getDatabasePath()}`;
+}
+
 function hasVercelKv() {
   const url = process.env.KV_REST_API_URL?.trim();
   const token = process.env.KV_REST_API_TOKEN?.trim();
@@ -430,6 +436,7 @@ export class ProoVraDatabase {
   creatorRssVerifications!: Map<string, CreatorRssVerification>;
   activities!: ActivityEvent[];
   stats!: DashboardStats;
+  readonly storageSignature: string;
 
   private readonly databasePath: string;
   private readonly useVercelKv: boolean;
@@ -439,6 +446,9 @@ export class ProoVraDatabase {
   constructor(databasePath = getDatabasePath()) {
     this.databasePath = databasePath;
     this.useVercelKv = hasVercelKv();
+    this.storageSignature = this.useVercelKv
+      ? `kv:${process.env.KV_REST_API_URL?.trim()}:${getDatabaseKey()}`
+      : `file:${this.databasePath}`;
     const data = this.useVercelKv ? createEmptyDatabase() : this.loadFileDatabase();
     this.replaceDatabase(data);
 
@@ -597,8 +607,11 @@ export class ProoVraDatabase {
 }
 
 const existingDb = global._proovraDb;
+const currentStorageSignature = getStorageSignature();
 export const db =
   existingDb &&
+  "storageSignature" in existingDb &&
+  existingDb.storageSignature === currentStorageSignature &&
   "ready" in existingDb &&
   "flush" in existingDb &&
   "wallets" in existingDb &&
