@@ -6,6 +6,7 @@ import {
 } from "@circle-fin/x402-batching/server";
 import { db } from "@/lib/db";
 import { CreatorContentService } from "@/services/creator-content.service";
+import { CreatorProfileService } from "@/services/creator-profile.service";
 import { X402PaymentService } from "@/services/x402-payment.service";
 
 export const runtime = "nodejs";
@@ -200,7 +201,10 @@ function contentPayload(contentId: string, paymentId: string | null) {
       title: content.title,
       description: content.description,
       body: content.body,
-      creatorName: content.creatorName,
+      creatorName: CreatorProfileService.getPublicName(
+        content.creatorWallet,
+        content.creatorName
+      ),
       source: content.source,
       sourceUrl: content.sourceUrl ?? null,
     },

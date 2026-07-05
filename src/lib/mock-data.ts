@@ -246,6 +246,16 @@ export interface CreatorContentAccess {
   accessedAt: Date;
 }
 
+export interface CreatorProfile {
+  id: string;
+  creatorWallet: string;
+  email?: string;
+  displayName: string;
+  username: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CreatorRssVerification {
   id: string;
   creatorWallet: string;

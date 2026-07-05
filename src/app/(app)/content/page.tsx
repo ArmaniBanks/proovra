@@ -93,6 +93,7 @@ export default function CreatorContentPage() {
     useApi<CreatorContentResponse>("/api/creator-content");
   const [form, setForm] = useState<ContentForm>(initialForm);
   const [privyWalletAddress, setPrivyWalletAddress] = useState("");
+  const [creatorEmail, setCreatorEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
   const [copiedId, setCopiedId] = useState("");
@@ -111,19 +112,50 @@ export default function CreatorContentPage() {
   const [rssSuccess, setRssSuccess] = useState("");
   const syncCreatorIdentity = useCallback(
     (identity: { email: string; walletAddress: string }) => {
+      setCreatorEmail(identity.email);
       setPrivyWalletAddress(identity.walletAddress);
       setRssPayoutWallet((current) => current || identity.walletAddress);
       setForm((current) => ({
         ...current,
-        creatorName:
-          current.creatorName === initialForm.creatorName && identity.email
-            ? identity.email
-            : current.creatorName,
+        creatorName: current.creatorName || initialForm.creatorName,
         creatorWallet: identity.walletAddress || current.creatorWallet,
       }));
     },
     []
   );
+
+  useEffect(() => {
+    if (!privyWalletAddress) return;
+    let active = true;
+    async function loadProfile() {
+      try {
+        const response = await fetch(
+          `/api/creator-profile?creatorWallet=${encodeURIComponent(privyWalletAddress)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          profile?: { displayName?: string } | null;
+        };
+        const displayName = payload.profile?.displayName;
+        if (!active || !displayName) return;
+        setForm((current) => ({
+          ...current,
+          creatorName:
+            current.creatorName === initialForm.creatorName ||
+            current.creatorName === creatorEmail
+              ? displayName
+              : current.creatorName,
+        }));
+      } catch {
+        // Profile names are helpful, but publishing should remain usable.
+      }
+    }
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, [creatorEmail, privyWalletAddress]);
 
   const contents = data?.contents ?? [];
   const accesses = data?.accesses ?? [];
@@ -541,6 +573,7 @@ export default function CreatorContentPage() {
               setForm((current) => ({ ...current, creatorName: event.target.value }))
             }
             placeholder="Creator name"
+            aria-label="Public creator display name"
             className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
           />
           <input

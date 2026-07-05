@@ -139,6 +139,10 @@ function CreatorDashboard({
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawStatus, setWithdrawStatus] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
+  const [profileDisplayName, setProfileDisplayName] = useState("");
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileStatus, setProfileStatus] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const summary = data?.summary;
   const contents = data?.contents ?? [];
@@ -177,6 +181,32 @@ function CreatorDashboard({
     };
   }, [walletAddress]);
 
+  useEffect(() => {
+    if (!walletAddress) return;
+    let active = true;
+    async function loadProfile() {
+      try {
+        const response = await fetch(
+          `/api/creator-profile?creatorWallet=${encodeURIComponent(walletAddress)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          profile?: { displayName: string; username: string } | null;
+        };
+        if (!active || !payload.profile) return;
+        setProfileDisplayName(payload.profile.displayName);
+        setProfileUsername(payload.profile.username);
+      } catch {
+        // The dashboard stays usable even before a public profile is created.
+      }
+    }
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, [walletAddress]);
+
   async function copyWallet() {
     if (!walletAddress) return;
     await navigator.clipboard.writeText(walletAddress);
@@ -212,6 +242,38 @@ function CreatorDashboard({
       );
     } finally {
       setWithdrawing(false);
+    }
+  }
+
+  async function saveProfile() {
+    if (!walletAddress) return;
+    setProfileSaving(true);
+    setProfileStatus("");
+    try {
+      const response = await fetch("/api/creator-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorWallet: walletAddress,
+          email,
+          displayName: profileDisplayName,
+          username: profileUsername,
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        profile?: { displayName: string; username: string };
+      };
+      if (!response.ok) throw new Error(payload.error ?? "Profile update failed.");
+      if (payload.profile) {
+        setProfileDisplayName(payload.profile.displayName);
+        setProfileUsername(payload.profile.username);
+      }
+      setProfileStatus("Public creator profile saved.");
+    } catch (error) {
+      setProfileStatus(error instanceof Error ? error.message : "Profile update failed.");
+    } finally {
+      setProfileSaving(false);
     }
   }
 
@@ -349,6 +411,54 @@ function CreatorDashboard({
           </div>
         </section>
       </div>
+
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="mb-2 inline-flex rounded-lg bg-amber-500/10 p-2">
+              <ShieldCheck className="h-4 w-4 text-amber-400" />
+            </div>
+            <h2 className="text-sm font-semibold text-zinc-100">
+              Public Creator Profile
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-zinc-500">
+              Agents and public discovery see this name, not your login email.
+              Saving also updates existing content tied to this wallet.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={saveProfile}
+            disabled={!walletAddress || profileSaving}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-zinc-950 transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
+          >
+            {profileSaving ? "Saving" : "Save Profile"}
+          </button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <input
+            value={profileDisplayName}
+            onChange={(event) => setProfileDisplayName(event.target.value)}
+            placeholder="Public display name, e.g. Nald"
+            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+          />
+          <input
+            value={profileUsername}
+            onChange={(event) => setProfileUsername(event.target.value)}
+            placeholder="username, e.g. 0xnald"
+            className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
+          />
+        </div>
+        {profileStatus && (
+          <p
+            className={`mt-3 text-xs ${
+              profileStatus.includes("saved") ? "text-emerald-300" : "text-red-400"
+            }`}
+          >
+            {profileStatus}
+          </p>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

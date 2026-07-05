@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { CreatorContentService } from "@/services/creator-content.service";
+import { CreatorProfileService } from "@/services/creator-profile.service";
 import type { CreatorContentSource } from "@/lib/mock-data";
 
 export const runtime = "nodejs";
@@ -53,7 +54,11 @@ export async function GET(req: Request) {
     .filter((content) => !source || content.source === source)
     .filter((content) => {
       if (!query) return true;
-      return [content.title, content.description, content.creatorName, content.sourceUrl]
+      const publicName = CreatorProfileService.getPublicName(
+        content.creatorWallet,
+        content.creatorName
+      );
+      return [content.title, content.description, publicName, content.sourceUrl]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(query));
     })
@@ -64,7 +69,10 @@ export async function GET(req: Request) {
         id: content.id,
         title: content.title,
         excerpt: content.description,
-        creatorName: content.creatorName,
+        creatorName: CreatorProfileService.getPublicName(
+          content.creatorWallet,
+          content.creatorName
+        ),
         source: content.source,
         sourceUrl: content.sourceUrl ?? null,
         sourceDomain: hostnameFromUrl(content.sourceUrl),

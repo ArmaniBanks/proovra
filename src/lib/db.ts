@@ -5,6 +5,7 @@ import type {
   Agent,
   CreatorContent,
   CreatorContentAccess,
+  CreatorProfile,
   CreatorRssVerification,
   DashboardStats,
   Receipt,
@@ -77,6 +78,7 @@ type PersistedDatabase = {
   x402Payments: X402PaymentRecord[];
   creatorContents: CreatorContent[];
   creatorContentAccesses: CreatorContentAccess[];
+  creatorProfiles: CreatorProfile[];
   creatorRssVerifications: CreatorRssVerification[];
   activities: ActivityEvent[];
   stats: DashboardStats;
@@ -321,6 +323,14 @@ function reviveCreatorContentAccess(
   };
 }
 
+function reviveCreatorProfile(profile: CreatorProfile): CreatorProfile {
+  return {
+    ...profile,
+    createdAt: new Date(profile.createdAt),
+    updatedAt: new Date(profile.updatedAt),
+  };
+}
+
 function reviveCreatorRssVerification(
   verification: CreatorRssVerification
 ): CreatorRssVerification {
@@ -344,6 +354,7 @@ function createEmptyDatabase(): PersistedDatabase {
     x402Payments: [],
     creatorContents: [],
     creatorContentAccesses: [],
+    creatorProfiles: [],
     creatorRssVerifications: [],
     activities: [],
     stats: {
@@ -375,6 +386,7 @@ function reviveDatabase(data: PersistedDatabase): PersistedDatabase {
     creatorContentAccesses: (data.creatorContentAccesses ?? []).map(
       reviveCreatorContentAccess
     ),
+    creatorProfiles: (data.creatorProfiles ?? []).map(reviveCreatorProfile),
     creatorRssVerifications: (data.creatorRssVerifications ?? []).map(
       reviveCreatorRssVerification
     ),
@@ -399,6 +411,7 @@ export class ProoVraDatabase {
   x402Payments!: Map<string, X402PaymentRecord>;
   creatorContents!: Map<string, CreatorContent>;
   creatorContentAccesses!: Map<string, CreatorContentAccess>;
+  creatorProfiles!: Map<string, CreatorProfile>;
   creatorRssVerifications!: Map<string, CreatorRssVerification>;
   activities!: ActivityEvent[];
   stats!: DashboardStats;
@@ -480,6 +493,13 @@ export class ProoVraDatabase {
       data.creatorContentAccesses.map((access) => [access.id, access]),
       persist
     );
+    this.creatorProfiles = new PersistentMap(
+      data.creatorProfiles.map((profile) => [
+        profile.creatorWallet.toLowerCase(),
+        profile,
+      ]),
+      persist
+    );
     this.creatorRssVerifications = new PersistentMap(
       data.creatorRssVerifications.map((verification) => [
         verification.id,
@@ -535,6 +555,7 @@ export class ProoVraDatabase {
       x402Payments: Array.from(this.x402Payments.values()),
       creatorContents: Array.from(this.creatorContents.values()),
       creatorContentAccesses: Array.from(this.creatorContentAccesses.values()),
+      creatorProfiles: Array.from(this.creatorProfiles.values()),
       creatorRssVerifications: Array.from(this.creatorRssVerifications.values()),
       activities: this.activities,
       stats: this.stats,
@@ -570,6 +591,7 @@ export const db =
   "x402Payments" in existingDb &&
   "creatorContents" in existingDb &&
   "creatorContentAccesses" in existingDb &&
+  "creatorProfiles" in existingDb &&
   "creatorRssVerifications" in existingDb
     ? existingDb
     : new ProoVraDatabase();

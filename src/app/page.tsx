@@ -77,13 +77,18 @@ export default function LandingPage() {
               Proo<span className="text-amber-400">Vra</span>
             </span>
           </Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400"
-          >
-            Launch App
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/docs" className="text-sm font-medium text-zinc-400 transition-colors hover:text-amber-300">
+              Docs
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400"
+            >
+              Launch App
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -160,9 +165,14 @@ export default function LandingPage() {
       <footer className="border-t border-zinc-800/40 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-xs text-zinc-600 sm:flex-row sm:px-6">
           <span>Built for Lepton Hackathon · Circle x402 · Arc · USDC</span>
-          <Link href="/dashboard" className="text-zinc-500 transition-colors hover:text-amber-400">
-            Launch App →
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/docs" className="text-zinc-500 transition-colors hover:text-amber-400">
+              Docs
+            </Link>
+            <Link href="/dashboard" className="text-zinc-500 transition-colors hover:text-amber-400">
+              Launch App →
+            </Link>
+          </div>
         </div>
       </footer>
     </main>
