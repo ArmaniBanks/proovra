@@ -123,7 +123,22 @@ function getDatabaseKey() {
 }
 
 function hasVercelKv() {
-  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+  const url = process.env.KV_REST_API_URL?.trim();
+  const token = process.env.KV_REST_API_TOKEN?.trim();
+  if (!url || !token || url.includes("...") || token.includes("...")) {
+    return false;
+  }
+
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    if (!isProductionRuntime()) {
+      console.warn("Ignoring invalid KV_REST_API_URL; using local file database.");
+      return false;
+    }
+    throw new Error("KV_REST_API_URL must be a valid URL.");
+  }
 }
 
 function isProductionRuntime() {
