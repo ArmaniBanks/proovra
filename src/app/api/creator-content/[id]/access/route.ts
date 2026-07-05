@@ -13,7 +13,6 @@ export const runtime = "nodejs";
 
 const ARC_TESTNET_CHAIN_ID = 5042002;
 const DEFAULT_USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
-const DEFAULT_PROVIDER_ADDRESS = "0x1047d233336BE340eFD867dB02C8a466bCFaA357";
 const NETWORK = `eip155:${ARC_TESTNET_CHAIN_ID}` as const;
 
 type RouteContext = {
@@ -99,6 +98,10 @@ function amountToBaseUnits(amount: number) {
   return String(Math.max(1, Math.round(amount * 1_000_000)));
 }
 
+function isWallet(value: string): value is `0x${string}` {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
+}
+
 function getPaymentId(req: Request) {
   return (
     req.headers.get("x-payment") ||
@@ -142,6 +145,10 @@ async function paymentRequirements(req: Request, contentId: string) {
   const gatewayAsset = kind ? getUsdcAsset(kind) : undefined;
   const resourceUrl = `${getBaseUrl(req)}${new URL(req.url).pathname}`;
   const amount = amountToBaseUnits(content.price);
+  const payTo = content.creatorWallet.trim();
+  if (!isWallet(payTo)) {
+    throw new Error("Creator payout wallet is missing or invalid.");
+  }
 
   const accepts: GatewayPaymentRequirements[] = [
     {
@@ -150,7 +157,7 @@ async function paymentRequirements(req: Request, contentId: string) {
       maxAmountRequired: amount,
       amount,
       asset: gatewayAsset || process.env.PROOVRA_X402_ASSET || DEFAULT_USDC_ADDRESS,
-      payTo: content.creatorWallet || process.env.PROOVRA_X402_PAY_TO || DEFAULT_PROVIDER_ADDRESS,
+      payTo,
       maxTimeoutSeconds: GATEWAY_AUTH_VALIDITY_WINDOW_SECONDS,
       resource: resourceUrl,
       description: `Paid agent access to ${content.title}`,
@@ -324,6 +331,7 @@ export async function GET(req: Request, context: RouteContext) {
             transaction: settlement.transaction,
             network: settlement.network,
             amount: selectedRequirements.amount,
+            payTo: selectedRequirements.payTo,
             payer: settlement.payer ?? verifyResult.payer ?? null,
           },
         },
@@ -334,6 +342,7 @@ export async function GET(req: Request, context: RouteContext) {
                 success: true,
                 transaction: settlement.transaction,
                 network: settlement.network,
+                payTo: selectedRequirements.payTo,
                 payer: settlement.payer ?? verifyResult.payer ?? "",
               })
             ).toString("base64"),

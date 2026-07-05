@@ -40,7 +40,20 @@ type CreatorContentResponse = {
 type BalanceState = {
   loading: boolean;
   value: string;
+  gatewayAvailable: string;
+  gatewayWithdrawable: string;
   error: string;
+};
+
+type CreatorWalletBalanceResponse = {
+  wallet: {
+    formatted: string;
+  };
+  gateway: {
+    formattedAvailable: string;
+    formattedWithdrawable: string;
+  };
+  error?: string;
 };
 
 export default function DashboardPage() {
@@ -131,6 +144,8 @@ function CreatorDashboard({
   const [balance, setBalance] = useState<BalanceState>({
     loading: false,
     value: "0.000000",
+    gatewayAvailable: "0.000000",
+    gatewayWithdrawable: "0.000000",
     error: "",
   });
   const [withdrawTo, setWithdrawTo] = useState("");
@@ -160,13 +175,15 @@ function CreatorDashboard({
     async function loadBalance() {
       setBalance((current) => ({ ...current, loading: true, error: "" }));
       try {
-        const value = await fetchUsdcBalance(walletAddress);
-        if (active) setBalance({ loading: false, value, error: "" });
+        const value = await fetchCreatorWalletBalances(walletAddress);
+        if (active) setBalance({ loading: false, ...value, error: "" });
       } catch (error) {
         if (active) {
           setBalance({
             loading: false,
             value: "0.000000",
+            gatewayAvailable: "0.000000",
+            gatewayWithdrawable: "0.000000",
             error: error instanceof Error ? error.message : "Balance unavailable",
           });
         }
@@ -236,8 +253,8 @@ function CreatorDashboard({
       setWithdrawAmount("");
       setWithdrawTo("");
       setBalance((current) => ({ ...current, loading: true }));
-      const refreshed = await fetchUsdcBalance(walletAddress);
-      setBalance({ loading: false, value: refreshed, error: "" });
+      const refreshed = await fetchCreatorWalletBalances(walletAddress);
+      setBalance({ loading: false, ...refreshed, error: "" });
     } catch (error) {
       setWithdrawStatus(
         error instanceof Error ? error.message : "Withdrawal failed"
@@ -353,18 +370,29 @@ function CreatorDashboard({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
               <p className="text-[11px] uppercase tracking-wider text-zinc-600">
-                USDC Balance
+                Wallet USDC
               </p>
               <p className="mt-2 font-mono text-2xl font-semibold text-zinc-100">
                 {balance.loading ? "..." : balance.value}
               </p>
-              <p className="mt-1 text-xs text-zinc-500">USDC on Arc Testnet</p>
+              <p className="mt-1 text-xs text-zinc-500">On-chain Arc balance</p>
               {balance.error && (
                 <p className="mt-2 text-xs text-red-400">{balance.error}</p>
               )}
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                Gateway Available
+              </p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-zinc-100">
+                {balance.loading ? "..." : balance.gatewayAvailable}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Circle Gateway balance
+              </p>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
               <p className="text-[11px] uppercase tracking-wider text-zinc-600">
@@ -376,6 +404,11 @@ function CreatorDashboard({
               <p className="mt-1 text-xs text-zinc-500">Receipt-tracked access</p>
             </div>
           </div>
+          <p className="mt-3 text-xs leading-5 text-zinc-500">
+            Agent payments settle through Circle Gateway first. Wallet USDC is
+            normal on-chain USDC; Gateway Available is the creator address&apos;s
+            Gateway balance that can later be withdrawn/minted to a wallet.
+          </p>
         </section>
 
         <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
@@ -687,29 +720,21 @@ function StatCard({
   );
 }
 
-async function fetchUsdcBalance(address: string) {
-  const response = await fetch(arcTestnetChain.rpcUrls.default.http[0], {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "eth_call",
-      params: [
-        {
-          to: ARC_USDC_ADDRESS,
-          data: `0x70a08231${address.slice(2).padStart(64, "0")}`,
-        },
-        "latest",
-      ],
-    }),
-  });
+async function fetchCreatorWalletBalances(address: string) {
+  const response = await fetch(
+    `/api/creator-wallet?address=${encodeURIComponent(address)}`,
+    { cache: "no-store" }
+  );
+  const payload = (await response.json()) as CreatorWalletBalanceResponse;
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Creator wallet balances unavailable.");
+  }
 
-  if (!response.ok) throw new Error("Unable to reach Arc RPC.");
-  const payload = (await response.json()) as { result?: string; error?: { message?: string } };
-  if (payload.error) throw new Error(payload.error.message ?? "Arc RPC balance error.");
-  const raw = BigInt(payload.result ?? "0x0");
-  return formatTokenAmount(raw, 6);
+  return {
+    value: payload.wallet.formatted,
+    gatewayAvailable: payload.gateway.formattedAvailable,
+    gatewayWithdrawable: payload.gateway.formattedWithdrawable,
+  };
 }
 
 function encodeUsdcTransfer(to: string, amount: string): `0x${string}` {
@@ -723,13 +748,6 @@ function parseTokenUnits(value: string, decimals: number) {
   const [whole = "0", fraction = ""] = value.trim().split(".");
   const normalizedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
   return BigInt(whole || "0") * BigInt(10) ** BigInt(decimals) + BigInt(normalizedFraction || "0");
-}
-
-function formatTokenAmount(value: bigint, decimals: number) {
-  const divisor = BigInt(10) ** BigInt(decimals);
-  const whole = value / divisor;
-  const fraction = (value % divisor).toString().padStart(decimals, "0");
-  return `${whole}.${fraction}`;
 }
 
 function isAddress(value: string) {

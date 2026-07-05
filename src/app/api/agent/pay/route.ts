@@ -17,6 +17,7 @@ type PaidContentResponse = {
     transaction?: string;
     network?: string;
     amount?: string;
+    payTo?: string;
     payer?: string | null;
   };
   [key: string]: unknown;
@@ -113,6 +114,7 @@ export async function POST(req: Request) {
         amountBaseUnits: result.amount.toString(),
         amount: result.formattedAmount,
         transaction: result.transaction,
+        payTo: result.data.x402Settlement?.payTo ?? content.creatorWallet,
         status: result.status,
         gatewayDeposit: gatewayDeposit ?? null,
       },

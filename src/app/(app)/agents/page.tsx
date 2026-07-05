@@ -58,6 +58,7 @@ type AccessState = {
   };
   paymentId?: string;
   transaction?: string;
+  payTo?: string;
   gatewayDeposit?: {
     amount?: string;
     approvalTxHash?: string;
@@ -163,6 +164,7 @@ export default function AgentsPage() {
         authorizedContent: payload.content,
         paymentId: payload.paymentId,
         transaction: payload.agentPayment?.transaction,
+        payTo: payload.agentPayment?.payTo,
         gatewayDeposit: payload.agentPayment?.gatewayDeposit ?? null,
       });
       void loadResources();
@@ -352,6 +354,11 @@ function ResourceCard({
               {state.transaction && (
                 <p className="mt-1 break-all font-mono text-xs text-zinc-500">
                   transaction: {state.transaction}
+                </p>
+              )}
+              {state.payTo && (
+                <p className="mt-1 break-all font-mono text-xs text-zinc-500">
+                  creator payTo: {state.payTo}
                 </p>
               )}
               {state.gatewayDeposit?.depositTxHash && (
