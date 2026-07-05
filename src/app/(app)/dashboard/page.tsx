@@ -56,16 +56,14 @@ function PrivySetupDashboard() {
           <ShieldCheck className="h-6 w-6 text-amber-400" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-white">
-          Configure Privy to enable creator dashboards.
+          Configure email login to enable creator dashboards.
         </h1>
         <p className="mt-3 text-sm leading-6 text-zinc-400">
-          Launch App should open this dashboard. Set `NEXT_PUBLIC_PRIVY_APP_ID`
-          so creators can log in by email, receive an embedded Arc wallet, and
-          manage content monetization from their own account.
+          Launch App should open this dashboard once email login is configured
+          in the deployment environment. Creators can then log in, receive an
+          embedded Arc wallet, and manage content monetization from their own
+          account.
         </p>
-        <code className="mt-6 block rounded-lg border border-zinc-800 bg-zinc-950/70 px-4 py-3 text-left text-xs text-zinc-400">
-          NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
-        </code>
       </div>
     </div>
   );
@@ -94,8 +92,8 @@ function PrivyDashboard() {
             Login to manage your paid creator content.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-400">
-            Creators sign in with email through Privy. ProoVra creates an
-            embedded wallet on Arc Testnet, then keeps your content sources,
+            Creators sign in with email. ProoVra creates an embedded wallet on
+            Arc Testnet, then keeps your content sources,
             x402 endpoints, USDC balance, receipts, and withdrawals inside your
             creator dashboard.
           </p>
@@ -326,8 +324,8 @@ function CreatorDashboard({
                 Creator Arc Wallet
               </h2>
               <p className="mt-1 text-xs leading-5 text-zinc-500">
-                This embedded wallet is created by Privy and used for your Arc
-                Testnet creator account.
+                This embedded wallet is used for your Arc Testnet creator
+                account.
               </p>
             </div>
             <span className="rounded-full border border-zinc-800 bg-zinc-950/60 px-2.5 py-1 text-[11px] text-zinc-400">

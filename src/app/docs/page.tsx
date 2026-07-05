@@ -53,7 +53,7 @@ const feedGuides = [
 ];
 
 const steps = [
-  "Launch App and sign in with email through Privy.",
+  "Launch App and sign in with email.",
   "Save a public creator profile with a display name and username.",
   "Open Content and paste your public RSS feed URL.",
   "Copy the ProoVra verification code into your feed, homepage, meta tag, or public same-domain page.",
@@ -110,7 +110,7 @@ export default function DocsPage() {
           <section className="rounded-2xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-zinc-900/70 to-zinc-950 p-6">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-amber-300">
               <BookOpen className="h-3.5 w-3.5" />
-              GitBook-style guide
+              Creator guide
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-white">
               Creator onboarding for paid agent access.

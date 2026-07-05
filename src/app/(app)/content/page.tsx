@@ -603,7 +603,7 @@ export default function CreatorContentPage() {
         />
         {privyWalletAddress && (
           <p className="mt-2 text-xs text-emerald-300">
-            Payout wallet is your Privy embedded wallet on Arc Testnet.
+            Payout wallet is your embedded wallet on Arc Testnet.
           </p>
         )}
         <input
