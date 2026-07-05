@@ -17,7 +17,7 @@ const feedGuides = [
   {
     platform: "Medium",
     format: "https://medium.com/feed/@username",
-    example: "https://medium.com/feed/@0xnald",
+    example: "https://medium.com/feed/@elon",
     notes: "Use the Medium handle after @. Public stories are imported.",
   },
   {
