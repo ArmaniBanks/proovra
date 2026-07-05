@@ -58,6 +58,11 @@ type AccessState = {
   };
   paymentId?: string;
   transaction?: string;
+  gatewayDeposit?: {
+    amount?: string;
+    approvalTxHash?: string;
+    depositTxHash?: string;
+  } | null;
 };
 
 export default function AgentsPage() {
@@ -152,10 +157,13 @@ export default function AgentsPage() {
       if (!response.ok) throw new Error(payload.error ?? "Payment failed.");
       updateAccess(resource.id, {
         status: "authorized",
-        message: "Real x402 payment settled. ProoVra returned the gated JSON content.",
+        message: payload.agentPayment?.gatewayDeposit
+          ? "Gateway auto-deposit completed, x402 payment settled, and ProoVra returned the gated JSON content."
+          : "Real x402 payment settled. ProoVra returned the gated JSON content.",
         authorizedContent: payload.content,
         paymentId: payload.paymentId,
         transaction: payload.agentPayment?.transaction,
+        gatewayDeposit: payload.agentPayment?.gatewayDeposit ?? null,
       });
       void loadResources();
     } catch (error) {
@@ -345,6 +353,21 @@ function ResourceCard({
                 <p className="mt-1 break-all font-mono text-xs text-zinc-500">
                   transaction: {state.transaction}
                 </p>
+              )}
+              {state.gatewayDeposit?.depositTxHash && (
+                <div className="mt-2 space-y-1 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-xs text-zinc-400">
+                  <p>
+                    Gateway auto-deposit: {state.gatewayDeposit.amount ?? "0.5"} USDC
+                  </p>
+                  {state.gatewayDeposit.approvalTxHash && (
+                    <p className="break-all font-mono">
+                      approval: {state.gatewayDeposit.approvalTxHash}
+                    </p>
+                  )}
+                  <p className="break-all font-mono">
+                    deposit: {state.gatewayDeposit.depositTxHash}
+                  </p>
+                </div>
               )}
               {state.paymentRequirements ? (
                 <pre className="mt-3 max-h-56 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950/70 p-3 text-xs leading-5 text-zinc-400">

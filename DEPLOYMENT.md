@@ -97,5 +97,7 @@ new GatewayClient({
 ```
 
 The private key must belong to an agent wallet with Arc Testnet USDC deposited
-or available in Circle Gateway. If the wallet is unfunded, payment fails instead
-of falling back to a simulated payment.
+or available in Circle Gateway. If Gateway balance is too low, `/api/agent/pay`
+automatically deposits `0.5` USDC from that agent wallet into Circle Gateway,
+then retries the x402 payment. If the wallet itself is unfunded, payment fails
+instead of falling back to a simulated payment.

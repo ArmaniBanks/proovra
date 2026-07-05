@@ -22,6 +22,9 @@ type PaidContentResponse = {
   [key: string]: unknown;
 };
 
+const GATEWAY_AUTO_DEPOSIT_AMOUNT = "0.5";
+const GATEWAY_AUTO_DEPOSIT_UNITS = BigInt(500_000);
+
 function amountToBaseUnits(amount: number) {
   return BigInt(Math.max(1, Math.round(amount * 1_000_000)));
 }
@@ -70,14 +73,33 @@ export async function POST(req: Request) {
     });
     const balances = await client.getBalances();
     const amountRequired = amountToBaseUnits(content.price);
+    let gatewayDeposit:
+      | {
+          amount: string;
+          amountBaseUnits: string;
+          approvalTxHash?: string;
+          depositTxHash: string;
+        }
+      | undefined;
+
     if (balances.gateway.available < amountRequired) {
-      return NextResponse.json(
-        {
-          error:
-            "Agent Circle Gateway balance is insufficient. Deposit Arc Testnet USDC into Circle Gateway for PROOVRA_AGENT_PRIVATE_KEY before paying.",
-        },
-        { status: 402 }
-      );
+      if (balances.wallet.balance < GATEWAY_AUTO_DEPOSIT_UNITS) {
+        return NextResponse.json(
+          {
+            error:
+              "Agent wallet does not have enough Arc Testnet USDC to auto-deposit 0.5 USDC into Circle Gateway.",
+          },
+          { status: 402 }
+        );
+      }
+
+      const deposit = await client.deposit(GATEWAY_AUTO_DEPOSIT_AMOUNT);
+      gatewayDeposit = {
+        amount: deposit.formattedAmount,
+        amountBaseUnits: deposit.amount.toString(),
+        approvalTxHash: deposit.approvalTxHash,
+        depositTxHash: deposit.depositTxHash,
+      };
     }
 
     const accessUrl = `${getBaseUrl(req)}/api/creator-content/${content.id}/access`;
@@ -92,6 +114,7 @@ export async function POST(req: Request) {
         amount: result.formattedAmount,
         transaction: result.transaction,
         status: result.status,
+        gatewayDeposit: gatewayDeposit ?? null,
       },
     });
   } catch (error) {
