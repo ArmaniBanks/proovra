@@ -419,6 +419,14 @@ export default function CreatorContentPage() {
                   a post that appears in this feed, you can leave the page URL
                   blank and verify from the feed.
                 </p>
+                {rssVerification.domain.includes("medium.com") && (
+                  <p className="mt-2 text-xs leading-5 text-amber-300">
+                    Medium tip: publish a short public Medium story containing
+                    this code, fetch the feed again, then verify. Medium may
+                    block homepage checks, but the RSS feed can still prove
+                    ownership.
+                  </p>
+                )}
               </div>
             </div>
             <code className="block overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-amber-300">

@@ -87,6 +87,13 @@ function sameDomainOrSubdomain(candidateUrl: string, domain: string) {
   }
 }
 
+function isMediumDomain(domain: string) {
+  const normalizedDomain = domain.toLowerCase();
+  return (
+    normalizedDomain === "medium.com" || normalizedDomain.endsWith(".medium.com")
+  );
+}
+
 async function fetchPublicText(url: URL) {
   const response = await fetch(url, {
     headers: {
@@ -280,6 +287,12 @@ export class RssImportService {
         db.creatorRssVerifications.set(verification.id, verification);
         return verification;
       }
+    }
+
+    if (isMediumDomain(verification.domain)) {
+      throw new Error(
+        "Verification code was not found in the Medium RSS feed. Publish a new public Medium story containing this code, fetch the feed again, then verify ownership. Medium may block homepage checks, so RSS-feed verification is the reliable path."
+      );
     }
 
     throw new Error(
