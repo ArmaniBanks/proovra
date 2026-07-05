@@ -2,7 +2,6 @@ import { createArcTestnetSettlementProvider } from "./arc-testnet.provider";
 import { createCircleCliWalletProvider } from "./circle-cli.provider";
 import { createCircleCliX402PaymentAuthorizationProvider } from "./circle-cli-x402.provider";
 import { createCircleSandboxWalletProvider } from "./circle-sandbox.provider";
-import { createSimulationProviders } from "./simulation.provider";
 import type {
   PaymentAuthorizationProviderMode,
   ProviderMode,
@@ -14,11 +13,11 @@ import type {
 function resolveProviderMode(): ProviderMode {
   const rawMode = process.env.PROOVRA_PROVIDER_MODE || process.env.PAYMENT_MODE;
 
-  if (rawMode === "live" || rawMode === "hybrid") {
-    return rawMode;
+  if (!rawMode || rawMode === "live") {
+    return "live";
   }
 
-  return "simulation";
+  throw new Error("PROOVRA_PROVIDER_MODE must be live. Simulation fallback is disabled.");
 }
 
 function resolveWalletProviderMode(): WalletProviderMode {
@@ -28,7 +27,9 @@ function resolveWalletProviderMode(): WalletProviderMode {
     return rawMode;
   }
 
-  return "simulation";
+  throw new Error(
+    "PROOVRA_WALLET_PROVIDER must be circle-cli or circle-sandbox. Simulation fallback is disabled."
+  );
 }
 
 function resolveSettlementProviderMode(): SettlementProviderMode {
@@ -38,7 +39,9 @@ function resolveSettlementProviderMode(): SettlementProviderMode {
     return rawMode;
   }
 
-  return "simulation";
+  throw new Error(
+    "PROOVRA_SETTLEMENT_PROVIDER must be arc-testnet. Simulation fallback is disabled."
+  );
 }
 
 function resolvePaymentAuthorizationProviderMode(): PaymentAuthorizationProviderMode {
@@ -48,7 +51,9 @@ function resolvePaymentAuthorizationProviderMode(): PaymentAuthorizationProvider
     return rawMode;
   }
 
-  return "simulation";
+  throw new Error(
+    "PROOVRA_PAYMENT_PROVIDER must be circle-cli-x402. Simulation fallback is disabled."
+  );
 }
 
 function createProviders(): ProoVraProviders {
@@ -56,21 +61,12 @@ function createProviders(): ProoVraProviders {
   const settlementMode = resolveSettlementProviderMode();
   const walletMode = resolveWalletProviderMode();
   const paymentAuthorizationMode = resolvePaymentAuthorizationProviderMode();
-  const simulationProviders = createSimulationProviders();
-  const settlementProvider =
-    settlementMode === "arc-testnet"
-      ? createArcTestnetSettlementProvider()
-      : simulationProviders.settlement;
+  const settlementProvider = createArcTestnetSettlementProvider();
   const walletProvider =
     walletMode === "circle-cli"
       ? createCircleCliWalletProvider()
-      : walletMode === "circle-sandbox"
-      ? createCircleSandboxWalletProvider()
-      : simulationProviders.wallet;
-  const paymentAuthorizationProvider =
-    paymentAuthorizationMode === "circle-cli-x402"
-      ? createCircleCliX402PaymentAuthorizationProvider()
-      : simulationProviders.paymentAuthorization;
+      : createCircleSandboxWalletProvider();
+  const paymentAuthorizationProvider = createCircleCliX402PaymentAuthorizationProvider();
 
   return {
     mode,

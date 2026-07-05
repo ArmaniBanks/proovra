@@ -26,6 +26,7 @@ The product also touches autonomous paying agents and paid agent services:
 - Persistence: local JSON in development, Vercel KV-compatible adapter in production.
 - Content records: title, description, body, creator name, payout wallet, source type, source URL, price, status, access count, and earnings.
 - Agent discovery: `GET /api/agent/discover` lists paid resource metadata and x402 access URLs without exposing full content bodies.
+- Agent buyer console: `/agents` shows discovery, `402 Payment Required`, real Circle Gateway x402 payment on Arc Testnet, unlocked JSON content, and updated access counts.
 - Paid endpoint: `GET /api/creator-content/[id]/access`.
 - x402 behavior: unpaid agent requests receive `402 Payment Required`; valid x402 payments unlock the content response.
 - Receipts: every settled access records payment ID, content ID, agent wallet, amount, and timestamp.

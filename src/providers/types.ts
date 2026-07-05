@@ -1,9 +1,9 @@
 import type { PricingModel } from "@/lib/mock-data";
 
-export type ProviderMode = "simulation" | "live" | "hybrid";
-export type SettlementProviderMode = "simulation" | "arc-testnet";
-export type WalletProviderMode = "simulation" | "circle-sandbox" | "circle-cli";
-export type PaymentAuthorizationProviderMode = "simulation" | "circle-cli-x402";
+export type ProviderMode = "live";
+export type SettlementProviderMode = "arc-testnet";
+export type WalletProviderMode = "circle-sandbox" | "circle-cli";
+export type PaymentAuthorizationProviderMode = "circle-cli-x402";
 
 export interface EscrowCreateInput {
   settlementId?: string;

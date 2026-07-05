@@ -112,10 +112,10 @@ export default function LandingPage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
-              href="/api/creator-content"
+              href="/agents"
               className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-7 py-3.5 text-sm font-semibold text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
             >
-              View Content API
+              Watch Agent Pay
               <FileText className="h-4 w-4" />
             </a>
           </div>

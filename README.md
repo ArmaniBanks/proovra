@@ -36,7 +36,9 @@ Creator publishes owned content
 - `/` - public landing page for paid creator content.
 - `/dashboard` - creator monetization overview.
 - `/content` - login-gated creator publishing flow for paid resources.
+- `/agents` - agent buyer console for discovering and paying for gated content.
 - `/api/agent/discover` - public agent discovery index for paid content metadata.
+- `/api/agent/pay` - real Circle Gateway x402 buyer route for Arc Testnet agent payments.
 - `/api/creator-content` - list/create creator content records.
 - `/api/creator-content/[id]/access` - x402-gated paid content access endpoint.
 
@@ -73,6 +75,10 @@ curl "http://localhost:3000/api/agent/discover?source=rss&q=privacy&limit=10"
 Agents then request a resource's `access.url`. Unpaid requests receive
 `402 Payment Required`; paid requests return the authorized JSON body.
 
+The `/agents` console pays through `/api/agent/pay`, which uses Circle Gateway
+on Arc Testnet. Configure `PROOVRA_AGENT_PRIVATE_KEY` with a funded agent wallet
+that has Gateway USDC available before calling it.
+
 ## Environment
 
 Optional x402 configuration:
@@ -82,6 +88,12 @@ NEXT_PUBLIC_PRIVY_APP_ID=your-privy-app-id
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 PROOVRA_X402_GATEWAY_URL=https://gateway-api-testnet.circle.com
 PROOVRA_X402_ASSET=0x3600000000000000000000000000000000000000
+PROOVRA_PROVIDER_MODE=live
+PROOVRA_SETTLEMENT_PROVIDER=arc-testnet
+PROOVRA_WALLET_PROVIDER=circle-cli
+PROOVRA_PAYMENT_PROVIDER=circle-cli-x402
+PROOVRA_AGENT_PRIVATE_KEY=0x-funded-agent-private-key
+PROOVRA_AGENT_RPC_URL=optional-arc-testnet-rpc-url
 ```
 
 Privy email login automatically provisions embedded Ethereum wallets for creators and defaults the app wallet context to Arc Testnet. Creator payout wallets are stored per content record. Local development persists records in `data/proovra-db.json`; production can use Vercel KV through the existing database adapter.

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bot,
   LayoutDashboard,
   ExternalLink,
 } from "lucide-react";
@@ -10,6 +11,7 @@ import { ProoVraMark } from "@/components/brand/proovra-mark";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/agents", label: "Agents", icon: Bot },
 ];
 
 export function Sidebar() {
