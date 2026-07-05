@@ -34,6 +34,20 @@ type GatewaySupportedKind = {
   };
 };
 
+type GatewayVerifyResult = {
+  isValid: boolean;
+  invalidReason?: string;
+  payer?: string;
+};
+
+type GatewaySettleResult = {
+  success: boolean;
+  errorReason?: string;
+  payer?: string;
+  transaction: string;
+  network: string;
+};
+
 type GatewayPaymentRequirements = {
   scheme: string;
   network: string;
@@ -161,8 +175,11 @@ async function paymentRequirements(req: Request, contentId: string) {
   };
 }
 
-function paymentRequiredResponse(requirements: Awaited<ReturnType<typeof paymentRequirements>>) {
-  return NextResponse.json(requirements, {
+function paymentRequiredResponse(
+  requirements: Awaited<ReturnType<typeof paymentRequirements>>,
+  error?: string
+) {
+  return NextResponse.json(error ? { ...requirements, error } : requirements, {
     status: 402,
     headers: {
       "PAYMENT-REQUIRED": Buffer.from(JSON.stringify(requirements)).toString("base64"),
@@ -235,22 +252,32 @@ export async function GET(req: Request, context: RouteContext) {
         throw new Error("Payment was signed for an unsupported network.");
       }
 
-      const verifyResult = await getGatewayClient().verify(
+      const verifyResult = (await getGatewayClient().verify(
         paymentPayload,
         selectedRequirements
-      );
+      )) as GatewayVerifyResult;
 
       if (!verifyResult.isValid) {
-        return paymentRequiredResponse(requirements);
+        return paymentRequiredResponse(
+          requirements,
+          `Payment verification failed: ${
+            verifyResult.invalidReason ?? "Circle Gateway rejected the payment authorization."
+          }`
+        );
       }
 
-      const settlement = await getGatewayClient().settle(
+      const settlement = (await getGatewayClient().settle(
         paymentPayload,
         selectedRequirements
-      );
+      )) as GatewaySettleResult;
 
       if (!settlement.success) {
-        return paymentRequiredResponse(requirements);
+        return paymentRequiredResponse(
+          requirements,
+          `Payment settlement failed: ${
+            settlement.errorReason ?? "Circle Gateway could not settle the payment."
+          }`
+        );
       }
 
       const amount = Number(selectedRequirements.amount) / 1_000_000;
