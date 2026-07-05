@@ -509,7 +509,7 @@ function CreatorDashboard({
             <input
               value={profileDisplayName}
               onChange={(event) => setProfileDisplayName(event.target.value)}
-              placeholder="Public display name, e.g. Nald"
+              placeholder="Public display name, e.g. Elonmusk"
               className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
             />
             <input
