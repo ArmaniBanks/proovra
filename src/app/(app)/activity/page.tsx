@@ -8,6 +8,7 @@ import {
   FileText,
   History,
   Newspaper,
+  Receipt,
   RefreshCw,
   Users,
 } from "lucide-react";
@@ -25,9 +26,13 @@ type ActivityEvent = {
   sourceDomain: string | null;
   price: number;
   amount: number | null;
+  creatorNetAmount: number | null;
+  platformFee: number | null;
   currency: "USDC";
   paidAccesses: number;
   totalEarned: number;
+  totalGrossVolume: number;
+  totalPlatformFees: number;
   agentWallet: string | null;
   contentId: string;
   occurredAt: string;
@@ -39,7 +44,12 @@ type ActivityResponse = {
     publishedCount: number;
     paidAccessCount: number;
     totalEarned: number;
+    totalGrossVolume: number;
+    totalPlatformFees: number;
     activeCreators: number;
+    revenue: {
+      platformFeePercent: number;
+    };
   };
 };
 
@@ -76,7 +86,7 @@ export default function ActivityPage() {
         </button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Metric
           icon={Newspaper}
           label="Published"
@@ -89,8 +99,13 @@ export default function ActivityPage() {
         />
         <Metric
           icon={CircleDollarSign}
-          label="Creator Earned"
+          label="Creator Net"
           value={loading ? "..." : formatUSDC(summary?.totalEarned ?? 0)}
+        />
+        <Metric
+          icon={Receipt}
+          label="ProoVra Fees"
+          value={loading ? "..." : formatUSDC(summary?.totalPlatformFees ?? 0)}
         />
         <Metric
           icon={Users}
@@ -193,13 +208,20 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
           )}
         </div>
       </div>
-      <div className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-left sm:grid-cols-3 sm:text-right lg:min-w-[320px]">
+      <div className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 text-left sm:grid-cols-4 sm:text-right lg:min-w-[420px]">
         <MiniStat label="Price" value={formatUSDC(event.price)} />
         <MiniStat
-          label={paid ? "Paid" : "Accesses"}
+          label={paid ? "Gross Paid" : "Accesses"}
           value={paid ? formatUSDC(event.amount ?? 0) : event.paidAccesses}
         />
-        <MiniStat label="Earned" value={formatUSDC(event.totalEarned)} />
+        <MiniStat
+          label={paid ? "Creator Net" : "Creator Earned"}
+          value={formatUSDC(paid ? event.creatorNetAmount ?? 0 : event.totalEarned)}
+        />
+        <MiniStat
+          label="ProoVra Fee"
+          value={formatUSDC(paid ? event.platformFee ?? 0 : event.totalPlatformFees)}
+        />
       </div>
     </div>
   );

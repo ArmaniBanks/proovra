@@ -30,7 +30,13 @@ type CreatorContentResponse = {
     publishedCount: number;
     totalAccesses: number;
     totalEarned: number;
+    totalGrossVolume: number;
+    totalPlatformFees: number;
     activeCreators: number;
+    revenue: {
+      platformFeePercent: number;
+      treasuryConfigured: boolean;
+    };
   };
 };
 
@@ -327,8 +333,8 @@ export default function CreatorContentPage() {
         <div className="grid grid-cols-2 gap-2 text-left sm:flex sm:items-center sm:gap-4 sm:text-right">
           <Metric label="Published" value={summary?.publishedCount ?? 0} />
           <Metric label="Accesses" value={summary?.totalAccesses ?? 0} />
-          <Metric label="Earned" value={formatUSDC(summary?.totalEarned ?? 0)} />
-          <Metric label="Creators" value={summary?.activeCreators ?? 0} />
+          <Metric label="Creator Net" value={formatUSDC(summary?.totalEarned ?? 0)} />
+          <Metric label="ProoVra Fees" value={formatUSDC(summary?.totalPlatformFees ?? 0)} />
         </div>
       </div>
 
@@ -564,7 +570,7 @@ export default function CreatorContentPage() {
             </p>
           </div>
           <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs text-amber-300">
-            x402 gated
+            {summary?.revenue.platformFeePercent ?? 10}% platform fee
           </span>
         </div>
 
@@ -677,7 +683,10 @@ export default function CreatorContentPage() {
                       </span>
                       <span>{formatUSDC(content.price)} per access</span>
                       <span>{content.accessCount} paid accesses</span>
-                      <span>{formatUSDC(content.totalEarned)} earned</span>
+                      <span>{formatUSDC(content.totalEarned)} creator net</span>
+                      <span>
+                        {formatUSDC(content.totalPlatformFees ?? 0)} ProoVra fees
+                      </span>
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col gap-2 sm:items-end">
@@ -723,7 +732,7 @@ export default function CreatorContentPage() {
                 <div key={access.id} className="py-3">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-mono text-xs text-zinc-400">
-                      {formatUSDC(access.amount)}
+                      {formatUSDC(access.amount)} gross
                     </span>
                     <span className="text-[11px] text-zinc-600">
                       {formatTimeAgo(access.accessedAt)}
@@ -731,6 +740,11 @@ export default function CreatorContentPage() {
                   </div>
                   <p className="mt-1 truncate font-mono text-[11px] text-zinc-600">
                     {access.paymentId}
+                  </p>
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    Creator net {formatUSDC(access.creatorNetAmount ?? access.amount)}
+                    {" · "}
+                    ProoVra fee {formatUSDC(access.platformFee ?? 0)}
                   </p>
                 </div>
               ))

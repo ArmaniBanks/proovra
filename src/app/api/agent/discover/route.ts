@@ -65,6 +65,7 @@ export async function GET(req: Request) {
     .slice(0, limit)
     .map((content) => {
       const accessUrl = `${baseUrl}/api/creator-content/${content.id}/access`;
+      const revenue = CreatorContentService.quoteRevenue(content.price);
       return {
         id: content.id,
         title: content.title,
@@ -81,6 +82,9 @@ export async function GET(req: Request) {
           amountBaseUnits: toBaseUnits(content.price),
           currency: content.currency,
           network: NETWORK,
+          creatorReceives: revenue.creatorNetAmount,
+          platformFee: revenue.platformFee,
+          platformFeeBps: revenue.platformFeeBps,
         },
         access: {
           method: "GET",
@@ -92,6 +96,8 @@ export async function GET(req: Request) {
         stats: {
           paidAccesses: content.accessCount,
           totalEarned: content.totalEarned,
+          totalGrossVolume: content.totalGrossVolume ?? content.totalEarned,
+          totalPlatformFees: content.totalPlatformFees ?? 0,
         },
         updatedAt: content.updatedAt.toISOString(),
       };
@@ -104,6 +110,7 @@ export async function GET(req: Request) {
         "Discover creator-owned resources available through x402-gated ProoVra endpoints. Full content bodies are returned only after payment.",
       network: "Arc Testnet",
       x402Version: 2,
+      revenue: CreatorContentService.getRevenueConfig(),
       count: resources.length,
       filters: {
         q: query || null,

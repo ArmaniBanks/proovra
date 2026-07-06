@@ -53,9 +53,13 @@ export async function GET(req: Request) {
     sourceDomain: hostnameFromUrl(content.sourceUrl),
     price: content.price,
     amount: null,
+    creatorNetAmount: null,
+    platformFee: null,
     currency: content.currency,
     paidAccesses: content.accessCount,
     totalEarned: content.totalEarned,
+    totalGrossVolume: content.totalGrossVolume ?? content.totalEarned,
+    totalPlatformFees: content.totalPlatformFees ?? 0,
     agentWallet: null,
     contentId: content.id,
     occurredAt: content.createdAt.toISOString(),
@@ -78,10 +82,14 @@ export async function GET(req: Request) {
         sourceUrl: content.sourceUrl ?? null,
         sourceDomain: hostnameFromUrl(content.sourceUrl),
         price: content.price,
-        amount: access.amount,
+        amount: CreatorContentService.getAccessGrossAmount(access),
+        creatorNetAmount: CreatorContentService.getAccessCreatorNetAmount(access),
+        platformFee: CreatorContentService.getAccessPlatformFee(access),
         currency: access.currency,
         paidAccesses: content.accessCount,
         totalEarned: content.totalEarned,
+        totalGrossVolume: content.totalGrossVolume ?? content.totalEarned,
+        totalPlatformFees: content.totalPlatformFees ?? 0,
         agentWallet: maskWallet(access.agentWallet),
         contentId: content.id,
         occurredAt: access.accessedAt.toISOString(),
@@ -95,16 +103,14 @@ export async function GET(req: Request) {
         new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
     )
     .slice(0, limit);
+  const summary = CreatorContentService.getSummary();
 
   return NextResponse.json(
     {
       events,
       summary: {
-        publishedCount: contents.length,
+        ...summary,
         paidAccessCount: accesses.length,
-        totalEarned: accesses.reduce((sum, access) => sum + access.amount, 0),
-        activeCreators: new Set(contents.map((content) => content.creatorWallet))
-          .size,
       },
     },
     {

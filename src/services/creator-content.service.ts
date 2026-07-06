@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
+import {
+  calculateAccessRevenue,
+  getPlatformFeeBps,
+  getTreasuryConfig,
+  platformFeePercent,
+} from "@/lib/revenue";
 import type {
   CreatorContent,
   CreatorContentAccess,
@@ -38,7 +44,46 @@ function assertNonEmpty(value: string, label: string) {
   if (!value.trim()) throw new Error(`${label} is required.`);
 }
 
+function accessGrossAmount(access: CreatorContentAccess) {
+  return access.grossAmount ?? access.amount;
+}
+
+function accessPlatformFee(access: CreatorContentAccess) {
+  return access.platformFee ?? 0;
+}
+
+function accessCreatorNetAmount(access: CreatorContentAccess) {
+  return access.creatorNetAmount ?? access.amount;
+}
+
 export class CreatorContentService {
+  static getRevenueConfig() {
+    const feeBps = getPlatformFeeBps();
+    const treasury = getTreasuryConfig();
+    return {
+      platformFeeBps: feeBps,
+      platformFeePercent: platformFeePercent(feeBps),
+      treasuryConfigured: treasury.configured,
+      settlementMode: "creator_direct_with_fee_ledger" as const,
+    };
+  }
+
+  static getAccessGrossAmount(access: CreatorContentAccess) {
+    return accessGrossAmount(access);
+  }
+
+  static getAccessPlatformFee(access: CreatorContentAccess) {
+    return accessPlatformFee(access);
+  }
+
+  static getAccessCreatorNetAmount(access: CreatorContentAccess) {
+    return accessCreatorNetAmount(access);
+  }
+
+  static quoteRevenue(amount: number) {
+    return calculateAccessRevenue(amount);
+  }
+
   static getContent(): CreatorContent[] {
     return Array.from(db.creatorContents.values()).sort(
       (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
@@ -88,6 +133,8 @@ export class CreatorContentService {
       status: "published",
       accessCount: 0,
       totalEarned: 0,
+      totalGrossVolume: 0,
+      totalPlatformFees: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -109,27 +156,36 @@ export class CreatorContentService {
       throw new Error("Content is not accepting paid agent access.");
     }
 
+    const revenue = calculateAccessRevenue(input.amount);
     const access: CreatorContentAccess = {
       id: makeId("access", `${input.contentId}:${input.paymentId}`),
       contentId: input.contentId,
       paymentId: input.paymentId,
       agentWallet: input.agentWallet,
-      amount: input.amount,
+      amount: revenue.grossAmount,
+      grossAmount: revenue.grossAmount,
+      platformFee: revenue.platformFee,
+      creatorNetAmount: revenue.creatorNetAmount,
+      platformFeeBps: revenue.platformFeeBps,
       currency: "USDC",
       status: "settled",
       accessedAt: new Date(),
     };
 
     content.accessCount += 1;
-    content.totalEarned += input.amount;
+    content.totalEarned += revenue.creatorNetAmount;
+    content.totalGrossVolume =
+      (content.totalGrossVolume ?? 0) + revenue.grossAmount;
+    content.totalPlatformFees =
+      (content.totalPlatformFees ?? 0) + revenue.platformFee;
     content.updatedAt = new Date();
     db.creatorContents.set(content.id, content);
     db.creatorContentAccesses.set(access.id, access);
     db.addActivity({
       type: "funds_released",
       agentId: "agent-access",
-      description: `Agent paid ${input.amount} USDC to access "${content.title}".`,
-      amount: input.amount,
+      description: `Agent paid ${revenue.grossAmount} USDC to access "${content.title}". Creator net: ${revenue.creatorNetAmount} USDC. ProoVra fee: ${revenue.platformFee} USDC.`,
+      amount: revenue.grossAmount,
     });
     return access;
   }
@@ -137,11 +193,27 @@ export class CreatorContentService {
   static getSummary() {
     const contents = this.getContent();
     const accesses = this.getAccesses();
+    const totalGrossVolume = accesses.reduce(
+      (sum, access) => sum + accessGrossAmount(access),
+      0
+    );
+    const totalPlatformFees = accesses.reduce(
+      (sum, access) => sum + accessPlatformFee(access),
+      0
+    );
+    const totalCreatorEarned = accesses.reduce(
+      (sum, access) => sum + accessCreatorNetAmount(access),
+      0
+    );
     return {
       publishedCount: contents.filter((content) => content.status === "published").length,
       totalAccesses: accesses.length,
-      totalEarned: accesses.reduce((sum, access) => sum + access.amount, 0),
+      totalEarned: totalCreatorEarned,
+      totalCreatorEarned,
+      totalGrossVolume,
+      totalPlatformFees,
       activeCreators: new Set(contents.map((content) => content.creatorWallet)).size,
+      revenue: this.getRevenueConfig(),
     };
   }
 }

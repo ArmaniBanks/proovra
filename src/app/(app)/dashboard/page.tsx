@@ -33,7 +33,13 @@ type CreatorContentResponse = {
     publishedCount: number;
     totalAccesses: number;
     totalEarned: number;
+    totalGrossVolume: number;
+    totalPlatformFees: number;
     activeCreators: number;
+    revenue: {
+      platformFeePercent: number;
+      treasuryConfigured: boolean;
+    };
   };
 };
 
@@ -370,7 +376,7 @@ function CreatorDashboard({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
               <p className="text-[11px] uppercase tracking-wider text-zinc-600">
                 Wallet USDC
@@ -396,18 +402,30 @@ function CreatorDashboard({
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
               <p className="text-[11px] uppercase tracking-wider text-zinc-600">
-                Earned From Agents
+                Net Earned From Agents
               </p>
               <p className="mt-2 font-mono text-2xl font-semibold text-zinc-100">
                 {loading ? "..." : formatUSDC(summary?.totalEarned ?? 0)}
               </p>
-              <p className="mt-1 text-xs text-zinc-500">Receipt-tracked access</p>
+              <p className="mt-1 text-xs text-zinc-500">After ProoVra fee</p>
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-4">
+              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                ProoVra Fees
+              </p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-amber-300">
+                {loading ? "..." : formatUSDC(summary?.totalPlatformFees ?? 0)}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {summary?.revenue.platformFeePercent ?? 10}% platform take-rate
+              </p>
             </div>
           </div>
           <p className="mt-3 text-xs leading-5 text-zinc-500">
             Agent payments settle through Circle Gateway first. Wallet USDC is
             normal on-chain USDC; Gateway Available is the creator address&apos;s
             Gateway balance that can later be withdrawn/minted to a wallet.
+            ProoVra fees are tracked in receipts for treasury claim and reporting.
           </p>
         </section>
 
@@ -531,7 +549,7 @@ function CreatorDashboard({
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={Newspaper}
           label="Published Resources"
@@ -544,8 +562,13 @@ function CreatorDashboard({
         />
         <StatCard
           icon={CircleDollarSign}
-          label="Creator Earnings"
+          label="Creator Net"
           value={loading ? "..." : formatUSDC(summary?.totalEarned ?? 0)}
+        />
+        <StatCard
+          icon={Receipt}
+          label="ProoVra Fees"
+          value={loading ? "..." : formatUSDC(summary?.totalPlatformFees ?? 0)}
         />
         <StatCard
           icon={Receipt}

@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Rss,
   ShieldCheck,
+  CircleDollarSign,
   Wallet,
 } from "lucide-react";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
@@ -93,7 +94,7 @@ export default function DocsPage() {
             <BookOpen className="h-4 w-4 text-amber-400" />
             ProoVra Docs
           </div>
-          {["Creator onboarding", "RSS feed URLs", "Ownership verification", "Agent payments"].map(
+          {["Creator onboarding", "RSS feed URLs", "Ownership verification", "Agent payments", "Revenue model"].map(
             (item) => (
               <a
                 key={item}
@@ -193,6 +194,33 @@ export default function DocsPage() {
               settles, ProoVra returns the authorized JSON content and records
               the receipt.
             </p>
+          </DocSection>
+
+          <DocSection id="revenue-model" title="Revenue Model" icon={CircleDollarSign}>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                <p className="text-sm font-semibold text-zinc-100">Platform fee</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  ProoVra records a default 10% platform fee on each paid agent
+                  access. Creators keep the remaining 90% as net earnings.
+                </p>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                <p className="text-sm font-semibold text-zinc-100">Creator-first</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  Creators do not pay upfront. ProoVra earns only when agents
+                  pay to access creator-owned content.
+                </p>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                <p className="text-sm font-semibold text-zinc-100">Treasury setup</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  ProoVra operators configure the treasury destination privately
+                  for fee reporting and claim workflows. Creator-facing pages
+                  only show whether fees are tracked.
+                </p>
+              </div>
+            </div>
           </DocSection>
         </article>
       </div>

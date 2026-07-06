@@ -145,6 +145,8 @@ async function paymentRequirements(req: Request, contentId: string) {
   const gatewayAsset = kind ? getUsdcAsset(kind) : undefined;
   const resourceUrl = `${getBaseUrl(req)}${new URL(req.url).pathname}`;
   const amount = amountToBaseUnits(content.price);
+  const revenue = CreatorContentService.quoteRevenue(content.price);
+  const revenueConfig = CreatorContentService.getRevenueConfig();
   const payTo = content.creatorWallet.trim();
   if (!isWallet(payTo)) {
     throw new Error("Creator payout wallet is missing or invalid.");
@@ -165,6 +167,14 @@ async function paymentRequirements(req: Request, contentId: string) {
       extra: {
         name: kind?.extra?.verifyingContract ? "GatewayWalletBatched" : "USDC",
         version: kind?.extra?.verifyingContract ? "1" : "2",
+        proovra: {
+          grossAmount: revenue.grossAmount,
+          platformFee: revenue.platformFee,
+          creatorNetAmount: revenue.creatorNetAmount,
+          platformFeeBps: revenue.platformFeeBps,
+          treasuryConfigured: revenueConfig.treasuryConfigured,
+          settlementMode: revenueConfig.settlementMode,
+        },
         ...(kind?.extra?.verifyingContract
           ? { verifyingContract: kind.extra.verifyingContract }
           : {}),
@@ -198,6 +208,8 @@ function paymentRequiredResponse(
 function contentPayload(contentId: string, paymentId: string | null) {
   const content = CreatorContentService.getContentById(contentId);
   if (!content) throw new Error("Content not found.");
+  const revenue = CreatorContentService.quoteRevenue(content.price);
+  const revenueConfig = CreatorContentService.getRevenueConfig();
 
   return {
     service: "ProoVra creator content API",
@@ -219,6 +231,15 @@ function contentPayload(contentId: string, paymentId: string | null) {
       permittedUse: "Agent read, summarize, cite, or transform with receipt attribution.",
       paidAccessPrice: content.price,
       currency: content.currency,
+    },
+    economics: {
+      grossAmount: revenue.grossAmount,
+      creatorNetAmount: revenue.creatorNetAmount,
+      platformFee: revenue.platformFee,
+      platformFeeBps: revenue.platformFeeBps,
+      platformFeePercent: revenueConfig.platformFeePercent,
+      treasuryConfigured: revenueConfig.treasuryConfigured,
+      settlementMode: revenueConfig.settlementMode,
     },
     paymentId,
   };
@@ -321,6 +342,7 @@ export async function GET(req: Request, context: RouteContext) {
         agentWallet: record.payerWallet,
         amount,
       });
+      const revenueConfig = CreatorContentService.getRevenueConfig();
       await db.flush();
 
       return NextResponse.json(
@@ -333,6 +355,14 @@ export async function GET(req: Request, context: RouteContext) {
             amount: selectedRequirements.amount,
             payTo: selectedRequirements.payTo,
             payer: settlement.payer ?? verifyResult.payer ?? null,
+            economics: {
+              grossAmount: access.grossAmount ?? access.amount,
+              creatorNetAmount: access.creatorNetAmount ?? access.amount,
+              platformFee: access.platformFee ?? 0,
+              platformFeeBps: access.platformFeeBps ?? revenueConfig.platformFeeBps,
+              treasuryConfigured: revenueConfig.treasuryConfigured,
+              settlementMode: revenueConfig.settlementMode,
+            },
           },
         },
         {

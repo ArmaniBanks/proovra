@@ -26,6 +26,9 @@ type DiscoveryResource = {
     amountBaseUnits: string;
     currency: "USDC";
     network: string;
+    creatorReceives: number;
+    platformFee: number;
+    platformFeeBps: number;
   };
   access: {
     method: "GET";
@@ -37,6 +40,8 @@ type DiscoveryResource = {
   stats: {
     paidAccesses: number;
     totalEarned: number;
+    totalGrossVolume: number;
+    totalPlatformFees: number;
   };
   updatedAt: string;
 };
@@ -305,6 +310,10 @@ function ResourceCard({
             {formatUSDC(resource.pricing.amount)}
           </p>
           <p className="mt-1 text-xs text-zinc-500">USDC per agent access</p>
+          <div className="mt-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-2 text-xs text-zinc-500">
+            <p>Creator receives {formatUSDC(resource.pricing.creatorReceives)}</p>
+            <p>ProoVra fee {formatUSDC(resource.pricing.platformFee)}</p>
+          </div>
           <div className="mt-4 space-y-2">
             <button
               type="button"

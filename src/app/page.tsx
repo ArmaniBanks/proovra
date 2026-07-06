@@ -19,6 +19,7 @@ type CreatorSummary = {
     publishedCount: number;
     totalAccesses: number;
     totalEarned: number;
+    totalPlatformFees: number;
     activeCreators: number;
   };
 };
@@ -128,10 +129,11 @@ export default function LandingPage() {
       </section>
 
       <section className="border-y border-zinc-800/60 bg-zinc-950/50">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 md:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-10 sm:px-6 md:grid-cols-5">
           <Stat label="Published" value={summary?.publishedCount ?? 0} />
           <Stat label="Paid Accesses" value={summary?.totalAccesses ?? 0} />
-          <Stat label="Creator Earnings" value={formatUSDC(summary?.totalEarned ?? 0)} />
+          <Stat label="Creator Net" value={formatUSDC(summary?.totalEarned ?? 0)} />
+          <Stat label="ProoVra Fees" value={formatUSDC(summary?.totalPlatformFees ?? 0)} />
           <Stat label="Creators" value={summary?.activeCreators ?? 0} />
         </div>
       </section>
@@ -144,6 +146,7 @@ export default function LandingPage() {
           <p className="mt-4 text-sm leading-6 text-zinc-500">
             The core product is not generic escrow. It is paid, authorized access to
             creator-owned content that agents can consume programmatically.
+            ProoVra earns through a transparent platform fee on every paid agent access.
           </p>
         </div>
         <div className="grid gap-5 md:grid-cols-4">

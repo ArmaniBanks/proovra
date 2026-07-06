@@ -231,6 +231,8 @@ export interface CreatorContent {
   status: CreatorContentStatus;
   accessCount: number;
   totalEarned: number;
+  totalGrossVolume?: number;
+  totalPlatformFees?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -241,6 +243,10 @@ export interface CreatorContentAccess {
   paymentId: string;
   agentWallet: string;
   amount: number;
+  grossAmount?: number;
+  platformFee?: number;
+  creatorNetAmount?: number;
+  platformFeeBps?: number;
   currency: "USDC";
   status: "settled";
   accessedAt: Date;
