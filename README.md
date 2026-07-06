@@ -31,6 +31,26 @@ Creator publishes owned content
 -> Creator sees access and receipt analytics
 ```
 
+## Revenue Model
+
+ProoVra uses a transaction take-rate model. By default, the app records a 10%
+platform fee on every paid agent access while creators keep 90% as net earnings.
+
+Current implementation:
+
+- Agent payments still settle through the existing x402 `payTo` flow.
+- ProoVra records gross payment, creator net, platform fee, and receipt metadata.
+- Dashboard, activity, content, discovery, and agent views show the fee split.
+- Treasury wallet/email can be configured privately for reporting and future claim flows.
+
+Important settlement note:
+
+At the moment, ProoVra fees are tracked in the backend revenue ledger, but USDC
+is not automatically moved into a ProoVra treasury account. Real treasury
+settlement will come in an upcoming upgrade, likely through a settlement wallet,
+post-settlement transfer, or provider-supported split flow once the live payout
+path is finalized.
+
 ## Current Product Surface
 
 - `/` - public landing page for paid creator content.
@@ -94,6 +114,9 @@ PROOVRA_WALLET_PROVIDER=circle-cli
 PROOVRA_PAYMENT_PROVIDER=circle-cli-x402
 PROOVRA_AGENT_PRIVATE_KEY=0x-funded-agent-private-key
 PROOVRA_AGENT_RPC_URL=optional-arc-testnet-rpc-url
+PROOVRA_PLATFORM_FEE_BPS=1000
+PROOVRA_TREASURY_WALLET=0x-your-proovra-treasury-wallet
+PROOVRA_TREASURY_EMAIL=treasury@example.com
 ```
 
 Privy email login automatically provisions embedded Ethereum wallets for creators and defaults the app wallet context to Arc Testnet. Creator payout wallets are stored per content record. Local development persists records in `data/proovra-db.json`; production can use Vercel KV through the existing database adapter.
