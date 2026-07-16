@@ -71,13 +71,6 @@ function getDatabaseKey() {
   return process.env.PROOVRA_KV_DB_KEY || "proovra:database:v3";
 }
 
-function getFallbackDatabaseKeys() {
-  const primary = getDatabaseKey();
-  return ["proovra:database:v5", "proovra:database:v4", "proovra:database:v3"].filter(
-    (key, index, keys) => key !== primary && keys.indexOf(key) === index
-  );
-}
-
 function getStorageSignature() {
   return hasVercelKv()
     ? `kv:${process.env.KV_REST_API_URL?.trim()}:${getDatabaseKey()}`
@@ -145,24 +138,7 @@ async function loadKvDatabase(): Promise<PersistedDatabase> {
     getDatabaseKey(),
   ]);
 
-  if (!result) {
-    for (const fallbackKey of getFallbackDatabaseKeys()) {
-      const fallback = await kvCommand<string | LegacyDatabase>([
-        "GET",
-        fallbackKey,
-      ]);
-      if (!fallback) continue;
-      const parsed =
-        typeof fallback === "string"
-          ? (JSON.parse(fallback) as LegacyDatabase)
-          : fallback;
-      const migrated = reviveDatabase(parsed);
-      await persistKvDatabase(migrated);
-      return migrated;
-    }
-    return createEmptyDatabase();
-  }
-
+  if (!result) return createEmptyDatabase();
   const parsed =
     typeof result === "string" ? (JSON.parse(result) as LegacyDatabase) : result;
   return reviveDatabase(parsed);
