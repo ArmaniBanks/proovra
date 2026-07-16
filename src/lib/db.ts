@@ -29,7 +29,7 @@ type PersistedDatabase = {
   creatorProfiles: CreatorProfile[];
   creatorRssVerifications: CreatorRssVerification[];
   activities: ActivityEvent[];
-};
+} & Record<string, unknown>;
 
 type LegacyDatabase = Partial<PersistedDatabase> & Record<string, unknown>;
 
@@ -148,6 +148,73 @@ async function persistKvDatabase(data: PersistedDatabase) {
   await kvCommand<string>(["SET", getDatabaseKey(), JSON.stringify(data)]);
 }
 
+function countArrayField(data: LegacyDatabase, field: string) {
+  const value = data[field];
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function getDatabaseCounts(data: LegacyDatabase) {
+  return {
+    version: data.version ?? null,
+    x402Payments: countArrayField(data, "x402Payments"),
+    creatorContents: countArrayField(data, "creatorContents"),
+    creatorContentAccesses: countArrayField(data, "creatorContentAccesses"),
+    creatorProfiles: countArrayField(data, "creatorProfiles"),
+    creatorRssVerifications: countArrayField(data, "creatorRssVerifications"),
+    activities: countArrayField(data, "activities"),
+    agents: countArrayField(data, "agents"),
+    tasks: countArrayField(data, "tasks"),
+    settlements: countArrayField(data, "settlements"),
+    receipts: countArrayField(data, "receipts"),
+    wallets: countArrayField(data, "wallets"),
+    settlementTransactions: countArrayField(data, "settlementTransactions"),
+  };
+}
+
+const currentDatabaseFields = new Set([
+  "version",
+  "x402Payments",
+  "creatorContents",
+  "creatorContentAccesses",
+  "creatorProfiles",
+  "creatorRssVerifications",
+  "activities",
+]);
+
+function getLegacyFields(data: PersistedDatabase) {
+  return Object.fromEntries(
+    Object.entries(data).filter(([key]) => !currentDatabaseFields.has(key))
+  );
+}
+
+export async function inspectKvDatabaseKeys() {
+  if (!hasVercelKv()) return { storage: "file" as const, keys: [] };
+
+  const keys = [
+    getDatabaseKey(),
+    "proovra:database:v5",
+    "proovra:database:v4",
+    "proovra:database:v3",
+    "proovra:database:v2",
+    "proovra:database:v1",
+    "proovra:database",
+  ].filter((key, index, allKeys) => allKeys.indexOf(key) === index);
+
+  const reports = [];
+  for (const key of keys) {
+    const result = await kvCommand<string | LegacyDatabase>(["GET", key]);
+    if (!result) {
+      reports.push({ key, exists: false, counts: null });
+      continue;
+    }
+    const parsed =
+      typeof result === "string" ? (JSON.parse(result) as LegacyDatabase) : result;
+    reports.push({ key, exists: true, counts: getDatabaseCounts(parsed) });
+  }
+
+  return { storage: "kv" as const, activeKey: getDatabaseKey(), keys: reports };
+}
+
 function reviveActivity(event: ActivityEvent): ActivityEvent {
   return {
     ...event,
@@ -213,6 +280,7 @@ function createEmptyDatabase(): PersistedDatabase {
 
 function reviveDatabase(data: LegacyDatabase): PersistedDatabase {
   return {
+    ...data,
     version: 5,
     x402Payments: (data.x402Payments ?? []).map(reviveX402Payment),
     creatorContents: (data.creatorContents ?? []).map(reviveCreatorContent),
@@ -244,6 +312,7 @@ export class ProoVraDatabase {
 
   private readonly databasePath: string;
   private readonly useVercelKv: boolean;
+  private legacyFields: Record<string, unknown> = {};
   private readyPromise: Promise<void>;
   private persistPromise: Promise<void> = Promise.resolve();
 
@@ -283,6 +352,7 @@ export class ProoVraDatabase {
 
   private replaceDatabase(data: PersistedDatabase) {
     const persist = () => this.persist();
+    this.legacyFields = getLegacyFields(data);
 
     this.x402Payments = new PersistentMap(
       data.x402Payments.map((payment) => [payment.paymentId, payment]),
@@ -347,6 +417,7 @@ export class ProoVraDatabase {
 
   private snapshot(): PersistedDatabase {
     return {
+      ...this.legacyFields,
       version: 5,
       x402Payments: Array.from(this.x402Payments.values()),
       creatorContents: Array.from(this.creatorContents.values()),
