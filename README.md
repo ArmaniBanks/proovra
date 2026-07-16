@@ -62,8 +62,6 @@ path is finalized.
 - `/api/creator-content` - list/create creator content records.
 - `/api/creator-content/[id]/access` - x402-gated paid content access endpoint.
 
-The old proof escrow task, agents, receipts, and settlement pages/routes have been removed from the deployed product surface so ProoVra now leads with creator content monetization.
-
 ## Local Development
 
 ```bash

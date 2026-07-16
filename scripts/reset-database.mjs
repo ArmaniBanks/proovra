@@ -5,24 +5,13 @@ const databasePath =
   process.env.PROOVRA_DB_PATH || join(process.cwd(), "data", "proovra-db.json");
 
 const emptyDatabase = {
-  version: 3,
-  agents: [],
-  tasks: [],
-  settlements: [],
-  receipts: [],
-  wallets: [],
-  settlementTransactions: [],
+  version: 5,
+  x402Payments: [],
+  creatorContents: [],
+  creatorContentAccesses: [],
+  creatorProfiles: [],
+  creatorRssVerifications: [],
   activities: [],
-  stats: {
-    totalSettled: 0,
-    pendingEscrow: 0,
-    settlementCount: 0,
-    activeAgents: 0,
-    successRate: 0,
-    avgSettlementTime: 0,
-    totalTransactions: 0,
-    volume24h: 0,
-  },
 };
 
 mkdirSync(dirname(databasePath), { recursive: true });

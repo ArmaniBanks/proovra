@@ -45,5 +45,3 @@ The product also touches autonomous paying agents and paid agent services:
 ## Positioning
 
 > ProoVra lets creators turn their existing content into paid, agent-readable APIs. Agents pay USDC nanopayments through x402 before they can read, cite, summarize, or reuse the content.
-
-This replaces the previous generic proof-escrow positioning with a narrower, clearer Lepton product: creator-owned content monetization for autonomous AI agents.

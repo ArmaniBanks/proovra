@@ -144,8 +144,8 @@ export default function LandingPage() {
             Built around the exact agent-payment moment.
           </h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">
-            The core product is not generic escrow. It is paid, authorized access to
-            creator-owned content that agents can consume programmatically.
+            ProoVra is paid, authorized access to creator-owned content that
+            agents can consume programmatically.
             ProoVra earns through a transparent platform fee on every paid agent access.
           </p>
         </div>

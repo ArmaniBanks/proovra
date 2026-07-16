@@ -2,57 +2,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type {
   ActivityEvent,
-  Agent,
   CreatorContent,
   CreatorContentAccess,
   CreatorProfile,
   CreatorRssVerification,
-  DashboardStats,
-  Receipt,
-  Settlement,
-  Task,
 } from "./mock-data";
-import type {
-  AgentWallet,
-  SettlementProviderMode,
-  SettlementReleaseResult,
-  WalletProviderMode,
-} from "@/providers";
-
-export interface AgentWalletRecord extends AgentWallet {
-  agentId: string;
-  provider: WalletProviderMode;
-  status: "created" | "active" | "disabled";
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface SettlementTransactionRecord {
-  settlementId: string;
-  provider: SettlementProviderMode;
-  contractAddress?: string;
-  externalEscrowId?: string;
-  createTxHash?: string;
-  createBlockNumber?: number;
-  createConfirmationStatus?: NonNullable<SettlementReleaseResult["confirmationStatus"]>;
-  createConfirmations?: number;
-  createSettlementTime?: number;
-  releaseTxHash?: string;
-  releaseBlockNumber?: number;
-  txHash: string;
-  blockNumber: number;
-  from: string;
-  to: string;
-  amount: number;
-  currency: "USDC";
-  status: SettlementReleaseResult["status"];
-  confirmationStatus: NonNullable<SettlementReleaseResult["confirmationStatus"]>;
-  confirmations: number;
-  settlementTime: number;
-  submittedAt: Date;
-  confirmedAt?: Date;
-  updatedAt: Date;
-}
 
 export interface X402PaymentRecord {
   paymentId: string;
@@ -68,21 +22,16 @@ export interface X402PaymentRecord {
 }
 
 type PersistedDatabase = {
-  version: 4;
-  agents: Agent[];
-  tasks: Task[];
-  settlements: Settlement[];
-  receipts: Receipt[];
-  wallets: AgentWalletRecord[];
-  settlementTransactions: SettlementTransactionRecord[];
+  version: 5;
   x402Payments: X402PaymentRecord[];
   creatorContents: CreatorContent[];
   creatorContentAccesses: CreatorContentAccess[];
   creatorProfiles: CreatorProfile[];
   creatorRssVerifications: CreatorRssVerification[];
   activities: ActivityEvent[];
-  stats: DashboardStats;
 };
+
+type LegacyDatabase = Partial<PersistedDatabase> & Record<string, unknown>;
 
 class PersistentMap<K, V> extends Map<K, V> {
   constructor(
@@ -119,7 +68,7 @@ function getDatabasePath() {
 }
 
 function getDatabaseKey() {
-  return process.env.PROOVRA_KV_DB_KEY || "proovra:database:v3";
+  return process.env.PROOVRA_KV_DB_KEY || "proovra:database:v5";
 }
 
 function getStorageSignature() {
@@ -184,14 +133,14 @@ async function kvCommand<T>(command: unknown[]): Promise<T | null> {
 }
 
 async function loadKvDatabase(): Promise<PersistedDatabase> {
-  const result = await kvCommand<string | PersistedDatabase>([
+  const result = await kvCommand<string | LegacyDatabase>([
     "GET",
     getDatabaseKey(),
   ]);
 
   if (!result) return createEmptyDatabase();
   const parsed =
-    typeof result === "string" ? (JSON.parse(result) as PersistedDatabase) : result;
+    typeof result === "string" ? (JSON.parse(result) as LegacyDatabase) : result;
   return reviveDatabase(parsed);
 }
 
@@ -199,123 +148,10 @@ async function persistKvDatabase(data: PersistedDatabase) {
   await kvCommand<string>(["SET", getDatabaseKey(), JSON.stringify(data)]);
 }
 
-function reviveAgent(agent: Agent): Agent {
-  return {
-    ...agent,
-    registeredAt: new Date(agent.registeredAt),
-  };
-}
-
-function reviveTask(task: Task): Task {
-  return {
-    ...task,
-    source: task.source
-      ? {
-          ...task.source,
-          importedAt: new Date(task.source.importedAt),
-          updatedAt: task.source.updatedAt ? new Date(task.source.updatedAt) : undefined,
-        }
-      : undefined,
-    deadline: new Date(task.deadline),
-    createdAt: new Date(task.createdAt),
-    milestones: task.milestones?.map((milestone) => ({
-      ...milestone,
-      completedAt: milestone.completedAt ? new Date(milestone.completedAt) : undefined,
-    })),
-  };
-}
-
-function reviveSettlement(settlement: Settlement): Settlement {
-  return {
-    ...settlement,
-    githubPullRequest: settlement.githubPullRequest
-      ? {
-          ...settlement.githubPullRequest,
-          createdAt: new Date(settlement.githubPullRequest.createdAt),
-          updatedAt: new Date(settlement.githubPullRequest.updatedAt),
-          mergedAt: settlement.githubPullRequest.mergedAt
-            ? new Date(settlement.githubPullRequest.mergedAt)
-            : undefined,
-          validatedAt: new Date(settlement.githubPullRequest.validatedAt),
-        }
-      : undefined,
-    proofFile: settlement.proofFile
-      ? {
-          ...settlement.proofFile,
-          uploadedAt: new Date(settlement.proofFile.uploadedAt),
-        }
-      : undefined,
-    createdAt: new Date(settlement.createdAt),
-    settledAt: settlement.settledAt ? new Date(settlement.settledAt) : undefined,
-    proofSubmittedAt: settlement.proofSubmittedAt
-      ? new Date(settlement.proofSubmittedAt)
-      : undefined,
-    verifiedAt: settlement.verifiedAt ? new Date(settlement.verifiedAt) : undefined,
-  };
-}
-
-function reviveReceipt(receipt: Receipt): Receipt {
-  return {
-    ...receipt,
-    githubPullRequest: receipt.githubPullRequest
-      ? {
-          ...receipt.githubPullRequest,
-          createdAt: new Date(receipt.githubPullRequest.createdAt),
-          updatedAt: new Date(receipt.githubPullRequest.updatedAt),
-          mergedAt: receipt.githubPullRequest.mergedAt
-            ? new Date(receipt.githubPullRequest.mergedAt)
-            : undefined,
-          validatedAt: new Date(receipt.githubPullRequest.validatedAt),
-        }
-      : undefined,
-    source: receipt.source
-      ? {
-          ...receipt.source,
-          importedAt: new Date(receipt.source.importedAt),
-          updatedAt: receipt.source.updatedAt
-            ? new Date(receipt.source.updatedAt)
-            : undefined,
-        }
-      : undefined,
-    proofFile: receipt.proofFile
-      ? {
-          ...receipt.proofFile,
-          uploadedAt: new Date(receipt.proofFile.uploadedAt),
-        }
-      : undefined,
-    createdAt: new Date(receipt.createdAt),
-    verificationTimestamp: receipt.verificationTimestamp
-      ? new Date(receipt.verificationTimestamp)
-      : undefined,
-    settlementTimestamp: receipt.settlementTimestamp
-      ? new Date(receipt.settlementTimestamp)
-      : undefined,
-  };
-}
-
 function reviveActivity(event: ActivityEvent): ActivityEvent {
   return {
     ...event,
     timestamp: new Date(event.timestamp),
-  };
-}
-
-function reviveWallet(wallet: AgentWalletRecord): AgentWalletRecord {
-  return {
-    ...wallet,
-    createdAt: new Date(wallet.createdAt),
-    updatedAt: new Date(wallet.updatedAt),
-  };
-}
-
-function reviveSettlementTransaction(
-  transaction: SettlementTransactionRecord
-): SettlementTransactionRecord {
-  return {
-    ...transaction,
-    submittedAt: new Date(transaction.submittedAt),
-    confirmedAt: transaction.confirmedAt ? new Date(transaction.confirmedAt) : undefined,
-    updatedAt: new Date(transaction.updatedAt),
   };
 }
 
@@ -365,43 +201,19 @@ function reviveCreatorRssVerification(
 
 function createEmptyDatabase(): PersistedDatabase {
   return {
-    version: 4,
-    agents: [],
-    tasks: [],
-    settlements: [],
-    receipts: [],
-    wallets: [],
-    settlementTransactions: [],
+    version: 5,
     x402Payments: [],
     creatorContents: [],
     creatorContentAccesses: [],
     creatorProfiles: [],
     creatorRssVerifications: [],
     activities: [],
-    stats: {
-      totalSettled: 0,
-      pendingEscrow: 0,
-      settlementCount: 0,
-      activeAgents: 0,
-      successRate: 0,
-      avgSettlementTime: 0,
-      totalTransactions: 0,
-      volume24h: 0,
-    },
   };
 }
 
-function reviveDatabase(data: PersistedDatabase): PersistedDatabase {
+function reviveDatabase(data: LegacyDatabase): PersistedDatabase {
   return {
-    version: 4,
-    agents: (data.agents ?? []).map(reviveAgent),
-    tasks: (data.tasks ?? []).map(reviveTask),
-    settlements: (data.settlements ?? []).map(reviveSettlement),
-    receipts: (data.receipts ?? []).map(reviveReceipt),
-    wallets: (data.wallets ?? []).map(reviveWallet),
-    settlementTransactions: (data.settlementTransactions ?? []).map(
-      reviveSettlementTransaction
-    ),
+    version: 5,
     x402Payments: (data.x402Payments ?? []).map(reviveX402Payment),
     creatorContents: (data.creatorContents ?? []).map(reviveCreatorContent),
     creatorContentAccesses: (data.creatorContentAccesses ?? []).map(
@@ -412,7 +224,6 @@ function reviveDatabase(data: PersistedDatabase): PersistedDatabase {
       reviveCreatorRssVerification
     ),
     activities: (data.activities ?? []).map(reviveActivity),
-    stats: { ...createEmptyDatabase().stats, ...(data.stats ?? {}) },
   };
 }
 
@@ -423,19 +234,12 @@ declare global {
 }
 
 export class ProoVraDatabase {
-  agents!: Map<string, Agent>;
-  tasks!: Map<string, Task>;
-  settlements!: Map<string, Settlement>;
-  receipts!: Map<string, Receipt>;
-  wallets!: Map<string, AgentWalletRecord>;
-  settlementTransactions!: Map<string, SettlementTransactionRecord>;
   x402Payments!: Map<string, X402PaymentRecord>;
   creatorContents!: Map<string, CreatorContent>;
   creatorContentAccesses!: Map<string, CreatorContentAccess>;
   creatorProfiles!: Map<string, CreatorProfile>;
   creatorRssVerifications!: Map<string, CreatorRssVerification>;
   activities!: ActivityEvent[];
-  stats!: DashboardStats;
   readonly storageSignature: string;
 
   private readonly databasePath: string;
@@ -477,35 +281,9 @@ export class ProoVraDatabase {
     return newEvent;
   }
 
-  updateStats(delta: Partial<DashboardStats>) {
-    this.stats = { ...this.stats, ...delta };
-    this.persist();
-  }
-
   private replaceDatabase(data: PersistedDatabase) {
     const persist = () => this.persist();
 
-    this.agents = new PersistentMap(data.agents.map((agent) => [agent.id, agent]), persist);
-    this.tasks = new PersistentMap(data.tasks.map((task) => [task.id, task]), persist);
-    this.settlements = new PersistentMap(
-      data.settlements.map((settlement) => [settlement.id, settlement]),
-      persist
-    );
-    this.receipts = new PersistentMap(
-      data.receipts.map((receipt) => [receipt.id, receipt]),
-      persist
-    );
-    this.wallets = new PersistentMap(
-      data.wallets.map((wallet) => [wallet.agentId, wallet]),
-      persist
-    );
-    this.settlementTransactions = new PersistentMap(
-      data.settlementTransactions.map((transaction) => [
-        transaction.settlementId,
-        transaction,
-      ]),
-      persist
-    );
     this.x402Payments = new PersistentMap(
       data.x402Payments.map((payment) => [payment.paymentId, payment]),
       persist
@@ -535,7 +313,6 @@ export class ProoVraDatabase {
     this.activities = [...data.activities].sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
     );
-    this.stats = { ...data.stats };
   }
 
   private async loadRemoteDatabase() {
@@ -560,7 +337,7 @@ export class ProoVraDatabase {
 
     try {
       const raw = readFileSync(this.databasePath, "utf8");
-      const parsed = JSON.parse(raw) as PersistedDatabase;
+      const parsed = JSON.parse(raw) as LegacyDatabase;
       return reviveDatabase(parsed);
     } catch (error) {
       console.error("Failed to load ProoVra database; using empty database.", error);
@@ -570,20 +347,13 @@ export class ProoVraDatabase {
 
   private snapshot(): PersistedDatabase {
     return {
-      version: 4,
-      agents: Array.from(this.agents.values()),
-      tasks: Array.from(this.tasks.values()),
-      settlements: Array.from(this.settlements.values()),
-      receipts: Array.from(this.receipts.values()),
-      wallets: Array.from(this.wallets.values()),
-      settlementTransactions: Array.from(this.settlementTransactions.values()),
+      version: 5,
       x402Payments: Array.from(this.x402Payments.values()),
       creatorContents: Array.from(this.creatorContents.values()),
       creatorContentAccesses: Array.from(this.creatorContentAccesses.values()),
       creatorProfiles: Array.from(this.creatorProfiles.values()),
       creatorRssVerifications: Array.from(this.creatorRssVerifications.values()),
       activities: this.activities,
-      stats: this.stats,
     };
   }
 
@@ -614,8 +384,6 @@ export const db =
   existingDb.storageSignature === currentStorageSignature &&
   "ready" in existingDb &&
   "flush" in existingDb &&
-  "wallets" in existingDb &&
-  "settlementTransactions" in existingDb &&
   "x402Payments" in existingDb &&
   "creatorContents" in existingDb &&
   "creatorContentAccesses" in existingDb &&

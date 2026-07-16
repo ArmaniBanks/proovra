@@ -6,20 +6,13 @@ This version has breaking changes; APIs, conventions, and file structure may all
 
 # ProoVra Developer Notes
 
-ProoVra is currently in Phase 2 simulation mode. Keep the current architecture and design language stable; do not start Arc, Circle, x402, wallet, or blockchain integrations during stabilization work.
+ProoVra is focused on creator-owned content monetization for AI agents.
 
-Integration intent for Phase 3:
+Current product workflow:
 
-- Arc is the intended USDC settlement layer.
-- Circle is the intended wallet and payment layer.
-- x402 is planned for agent payment and request flows.
-- Simulation mode must remain available as the fallback for demo stability.
-
-Phase 3 CLI prerequisites:
-
-```bash
-uv tool install git+https://github.com/the-canteen-dev/ARC-cli
-npm install -g @circle-fin/cli
-```
-
-The current app should continue to run from simulated backend routes until Phase 3 integration work begins.
+- Creators sign in, receive/manage an embedded Arc wallet, and save a public creator profile.
+- Creators publish manual content or import public RSS content they control.
+- RSS content requires ownership verification before monetization.
+- ProoVra exposes selected resources through x402-gated JSON endpoints.
+- Agents discover resources, receive `402 Payment Required`, pay through Circle Gateway x402 on Arc Testnet, and receive authorized JSON content.
+- ProoVra records paid access receipts, creator net earnings, and the platform fee ledger.

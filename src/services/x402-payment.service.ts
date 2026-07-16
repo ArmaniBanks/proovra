@@ -1,5 +1,12 @@
 import { db, type X402PaymentRecord } from "@/lib/db";
-import type { PaymentAuthorizationResult } from "@/providers";
+
+type PaymentAuthorizationResult = {
+  status: number;
+  paymentId: string;
+  amount: number;
+  settled: boolean;
+  receipt: string;
+};
 
 type X402PaymentInput = {
   settlementId: string;
