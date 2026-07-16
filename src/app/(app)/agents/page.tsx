@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Bot,
   CheckCircle2,
@@ -315,6 +316,13 @@ function ResourceCard({
             <p>ProoVra fee {formatUSDC(resource.pricing.platformFee)}</p>
           </div>
           <div className="mt-4 space-y-2">
+            <Link
+              href={`/r/${resource.id}`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-amber-500/30 hover:text-amber-300"
+            >
+              View Resource Page
+              <ExternalLink className="h-4 w-4" />
+            </Link>
             <button
               type="button"
               onClick={onRequest}

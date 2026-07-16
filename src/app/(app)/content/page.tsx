@@ -690,6 +690,15 @@ export default function CreatorContentPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+                    <a
+                      href={`/r/${content.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-amber-500/30 hover:text-amber-300"
+                    >
+                      Share Page
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
                     <button
                       type="button"
                       onClick={() => copyEndpoint(content.id)}
