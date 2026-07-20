@@ -84,8 +84,14 @@ export class CreatorContentService {
     return calculateAccessRevenue(amount);
   }
 
-  static getContent(): CreatorContent[] {
-    return Array.from(db.creatorContents.values()).sort(
+  static getContent(creatorWallet?: string): CreatorContent[] {
+    return Array.from(db.creatorContents.values())
+      .filter(
+        (content) =>
+          !creatorWallet ||
+          content.creatorWallet.toLowerCase() === creatorWallet.toLowerCase()
+      )
+      .sort(
       (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
     );
   }
@@ -98,9 +104,14 @@ export class CreatorContentService {
     return db.creatorContents.get(contentId);
   }
 
-  static getAccesses(contentId?: string): CreatorContentAccess[] {
+  static getAccesses(contentId?: string, creatorWallet?: string): CreatorContentAccess[] {
+    const creatorContentIds = creatorWallet
+      ? new Set(this.getContent(creatorWallet).map((content) => content.id))
+      : null;
+
     return Array.from(db.creatorContentAccesses.values())
       .filter((access) => !contentId || access.contentId === contentId)
+      .filter((access) => !creatorContentIds || creatorContentIds.has(access.contentId))
       .sort((a, b) => b.accessedAt.getTime() - a.accessedAt.getTime());
   }
 
@@ -190,9 +201,9 @@ export class CreatorContentService {
     return access;
   }
 
-  static getSummary() {
-    const contents = this.getContent();
-    const accesses = this.getAccesses();
+  static getSummary(creatorWallet?: string) {
+    const contents = this.getContent(creatorWallet);
+    const accesses = this.getAccesses(undefined, creatorWallet);
     const totalGrossVolume = accesses.reduce(
       (sum, access) => sum + accessGrossAmount(access),
       0

@@ -34,6 +34,13 @@ export class CreatorProfileService {
     return db.creatorProfiles.get(creatorWallet.toLowerCase());
   }
 
+  static getProfileByUsername(username: string): CreatorProfile | undefined {
+    const normalizedUsername = normalizeUsername(username);
+    return Array.from(db.creatorProfiles.values()).find(
+      (profile) => profile.username.toLowerCase() === normalizedUsername
+    );
+  }
+
   static getPublicName(creatorWallet: string, fallbackName?: string) {
     const profile = this.getProfile(creatorWallet);
     if (profile?.displayName.trim()) return profile.displayName;

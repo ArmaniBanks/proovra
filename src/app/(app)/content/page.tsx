@@ -88,6 +88,7 @@ const initialForm: ContentForm = {
   creatorWallet: "",
   price: "0.000001",
 };
+const EMPTY_CREATOR_WALLET = "0x0000000000000000000000000000000000000000";
 
 function accessUrl(contentId: string) {
   if (typeof window === "undefined") return `/api/creator-content/${contentId}/access`;
@@ -95,10 +96,13 @@ function accessUrl(contentId: string) {
 }
 
 export default function CreatorContentPage() {
-  const { data, loading, error, mutate } =
-    useApi<CreatorContentResponse>("/api/creator-content");
   const [form, setForm] = useState<ContentForm>(initialForm);
   const [privyWalletAddress, setPrivyWalletAddress] = useState("");
+  const scopedCreatorWallet = privyWalletAddress || form.creatorWallet || EMPTY_CREATOR_WALLET;
+  const { data, loading, error, mutate } =
+    useApi<CreatorContentResponse>(
+      `/api/creator-content?creatorWallet=${encodeURIComponent(scopedCreatorWallet)}`
+    );
   const [creatorEmail, setCreatorEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -327,7 +331,7 @@ export default function CreatorContentPage() {
             </h1>
           </div>
           <p className="mt-1 text-sm text-zinc-500 sm:ml-[42px]">
-            Turn creator-owned writing, docs, or feeds into x402-paid APIs for agents.
+            Manage only your own creator-owned writing, docs, feeds, and paid resource pages.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-left sm:flex sm:items-center sm:gap-4 sm:text-right">
@@ -566,7 +570,7 @@ export default function CreatorContentPage() {
               Publish Paid Agent Resource
             </h2>
             <p className="mt-1 text-xs text-zinc-500">
-              Start with one explicit creator-owned resource. RSS/Ghost imports can feed this same model.
+              Start with one explicit resource created inside your own ProoVra account.
             </p>
           </div>
           <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs text-amber-300">
@@ -637,7 +641,7 @@ export default function CreatorContentPage() {
         />
 
         <div className="mt-4 flex items-center justify-between gap-3">
-          <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500">
             Agents receive `402 Payment Required`, pay on Arc, then get this content as JSON.
           </p>
           <button

@@ -25,6 +25,7 @@ import { formatUSDC } from "@/lib/utils";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
 
 const ARC_USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
+const EMPTY_CREATOR_WALLET = "0x0000000000000000000000000000000000000000";
 
 type CreatorContentResponse = {
   contents: CreatorContent[];
@@ -141,11 +142,14 @@ function CreatorDashboard({
 }) {
   const { wallets, ready: walletsReady } = useWallets();
   const { sendTransaction } = useSendTransaction();
-  const { data, loading, error } =
-    useApi<CreatorContentResponse>("/api/creator-content");
   const embeddedWallet =
     wallets.find((wallet) => wallet.walletClientType === "privy") ?? wallets[0];
   const walletAddress = embeddedWallet?.address ?? "";
+  const creatorContentEndpoint = `/api/creator-content?creatorWallet=${encodeURIComponent(
+    walletAddress || EMPTY_CREATOR_WALLET
+  )}`;
+  const { data, loading, error } =
+    useApi<CreatorContentResponse>(creatorContentEndpoint);
   const [copied, setCopied] = useState(false);
   const [balance, setBalance] = useState<BalanceState>({
     loading: false,
@@ -164,6 +168,7 @@ function CreatorDashboard({
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileRegistered, setProfileRegistered] = useState(false);
   const [profileEditing, setProfileEditing] = useState(true);
+  const publicationPath = profileUsername ? `/creator/${profileUsername}` : "";
 
   const summary = data?.summary;
   const contents = data?.contents ?? [];
@@ -315,14 +320,19 @@ function CreatorDashboard({
           <div>
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Creator dashboard active
+              Creator dashboard
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-white">
-              Welcome, {email}
+              Welcome, {profileRegistered ? profileDisplayName : email}
             </h1>
+            {profileRegistered && (
+              <p className="mt-2 text-xs text-zinc-500">
+                Signed in as {email}
+              </p>
+            )}
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-              Manage your connected platforms, paid agent-readable content,
-              wallet balance, receipts, and withdrawals from this dashboard.
+              Manage your profile, wallet, verified sources, published
+              resources, receipts, and earnings from one place.
             </p>
           </div>
           <button
@@ -504,7 +514,7 @@ function CreatorDashboard({
           )}
         </div>
         {profileRegistered && !profileEditing ? (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
               <p className="text-[11px] uppercase tracking-wider text-zinc-600">
                 Display name
@@ -520,6 +530,17 @@ function CreatorDashboard({
               <p className="mt-1 font-mono text-sm font-semibold text-amber-300">
                 @{profileUsername}
               </p>
+            </div>
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+              <p className="text-[11px] uppercase tracking-wider text-amber-300">
+                Shareable publication page
+              </p>
+              <Link
+                href={publicationPath}
+                className="mt-1 inline-flex break-all text-sm font-semibold text-amber-200 transition-colors hover:text-amber-100"
+              >
+                {publicationPath}
+              </Link>
             </div>
           </div>
         ) : (
@@ -572,8 +593,8 @@ function CreatorDashboard({
         />
         <StatCard
           icon={Receipt}
-          label="Active Creators"
-          value={loading ? "..." : summary?.activeCreators ?? 0}
+          label="Gross Volume"
+          value={loading ? "..." : formatUSDC(summary?.totalGrossVolume ?? 0)}
         />
       </div>
 
@@ -584,7 +605,7 @@ function CreatorDashboard({
           <div>
             <h2 className="text-sm font-semibold text-zinc-100">Creator Content</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              Publish resources agents can access through x402-paid endpoints.
+              Your published resources and shareable paid pages.
             </p>
           </div>
           <Link

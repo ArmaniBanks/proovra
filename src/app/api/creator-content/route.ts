@@ -13,12 +13,20 @@ type CreateContentBody = {
   price?: unknown;
 };
 
-export async function GET() {
+export async function GET(req: Request) {
   await db.ready();
+  const creatorWallet = new URL(req.url).searchParams.get("creatorWallet")?.trim();
+  if (creatorWallet && !/^0x[a-fA-F0-9]{40}$/.test(creatorWallet)) {
+    return NextResponse.json(
+      { error: "creatorWallet must be a valid wallet address." },
+      { status: 400 }
+    );
+  }
+
   return NextResponse.json({
-    contents: CreatorContentService.getContent(),
-    accesses: CreatorContentService.getAccesses().slice(0, 25),
-    summary: CreatorContentService.getSummary(),
+    contents: CreatorContentService.getContent(creatorWallet),
+    accesses: CreatorContentService.getAccesses(undefined, creatorWallet).slice(0, 25),
+    summary: CreatorContentService.getSummary(creatorWallet),
   });
 }
 
