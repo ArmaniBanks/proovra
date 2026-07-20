@@ -37,6 +37,24 @@ type UnlockPayload = {
       amount?: string;
       depositTxHash?: string;
     } | null;
+    splitSettlement?: {
+      mode: "dual_x402_split";
+      grossAmount: number;
+      creatorNetAmount: number;
+      platformFee: number;
+      creatorPayment: {
+        amount: string;
+        transaction: string;
+        payTo: string;
+        fundsStatus: string;
+      };
+      treasuryPayment: {
+        paymentId: string;
+        amount: number;
+        transaction: string;
+        payTo: string;
+      };
+    } | null;
   };
 };
 
@@ -261,6 +279,21 @@ export function ResourceUnlockPanel({
               <p>payment: {payload.paymentId ?? "confirmed"}</p>
               {payload.agentPayment?.transaction && (
                 <p>transaction: {payload.agentPayment.transaction}</p>
+              )}
+              {payload.agentPayment?.splitSettlement && (
+                <>
+                  <p>
+                    settlement: creator net + ProoVra treasury split
+                  </p>
+                  <p>
+                    creator tx:{" "}
+                    {payload.agentPayment.splitSettlement.creatorPayment.transaction}
+                  </p>
+                  <p>
+                    treasury tx:{" "}
+                    {payload.agentPayment.splitSettlement.treasuryPayment.transaction}
+                  </p>
+                </>
               )}
               <p>gross: {formatUSDC(payload.access?.amount ?? price)}</p>
               <p>

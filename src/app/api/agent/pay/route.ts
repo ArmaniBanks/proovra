@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { GatewayClient } from "@circle-fin/x402-batching/client";
 import { db } from "@/lib/db";
+import { getTreasuryConfig } from "@/lib/revenue";
 import { CreatorContentService } from "@/services/creator-content.service";
 
 export const runtime = "nodejs";
@@ -21,6 +22,14 @@ type PaidContentResponse = {
     payer?: string | null;
   };
   [key: string]: unknown;
+};
+
+type PlatformFeeResponse = {
+  paymentId: string;
+  transaction: string;
+  payTo: string;
+  amount: number;
+  network: string;
 };
 
 const GATEWAY_AUTO_DEPOSIT_AMOUNT = "0.5";
@@ -73,6 +82,11 @@ export async function POST(req: Request) {
         : {}),
     });
     const balances = await client.getBalances();
+    const revenue = CreatorContentService.quoteRevenue(content.price);
+    const treasury = getTreasuryConfig();
+    const splitSettlementEnabled = Boolean(
+      treasury.wallet && revenue.platformFee > 0
+    );
     const amountRequired = amountToBaseUnits(content.price);
     let gatewayDeposit:
       | {
@@ -103,8 +117,24 @@ export async function POST(req: Request) {
       };
     }
 
-    const accessUrl = `${getBaseUrl(req)}/api/creator-content/${content.id}/access`;
-    const result = await client.pay<PaidContentResponse>(accessUrl);
+    let platformFeePayment: PlatformFeeResponse | null = null;
+    if (splitSettlementEnabled) {
+      const feeUrl = `${getBaseUrl(req)}/api/platform-fee/${content.id}/settle`;
+      const feeResult = await client.pay<PlatformFeeResponse>(feeUrl);
+      platformFeePayment = feeResult.data;
+    }
+
+    const accessUrl = splitSettlementEnabled
+      ? `${getBaseUrl(req)}/api/creator-content/${content.id}/access?settlement=creator-net`
+      : `${getBaseUrl(req)}/api/creator-content/${content.id}/access`;
+    const result = await client.pay<PaidContentResponse>(accessUrl, {
+      headers: platformFeePayment
+        ? {
+            "x-proovra-platform-payment-id": platformFeePayment.paymentId,
+            "x-proovra-platform-tx": platformFeePayment.transaction,
+          }
+        : undefined,
+    });
 
     return NextResponse.json({
       ...result.data,
@@ -117,6 +147,26 @@ export async function POST(req: Request) {
         payTo: result.data.x402Settlement?.payTo ?? content.creatorWallet,
         status: result.status,
         gatewayDeposit: gatewayDeposit ?? null,
+        splitSettlement: platformFeePayment
+          ? {
+              mode: "dual_x402_split",
+              grossAmount: revenue.grossAmount,
+              creatorNetAmount: revenue.creatorNetAmount,
+              platformFee: revenue.platformFee,
+              creatorPayment: {
+                amount: result.formattedAmount,
+                transaction: result.transaction,
+                payTo: result.data.x402Settlement?.payTo ?? content.creatorWallet,
+                fundsStatus: "creator_gateway_balance",
+              },
+              treasuryPayment: {
+                paymentId: platformFeePayment.paymentId,
+                amount: platformFeePayment.amount,
+                transaction: platformFeePayment.transaction,
+                payTo: platformFeePayment.payTo,
+              },
+            }
+          : null,
       },
     });
   } catch (error) {

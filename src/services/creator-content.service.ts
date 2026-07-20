@@ -28,6 +28,16 @@ type RecordAccessInput = {
   paymentId: string;
   agentWallet: string;
   amount: number;
+  grossAmount?: number;
+  platformFee?: number;
+  creatorNetAmount?: number;
+  platformFeeBps?: number;
+  settlementMode?: CreatorContentAccess["settlementMode"];
+  creatorSettlementTx?: string;
+  platformFeePaymentId?: string;
+  platformFeeSettlementTx?: string;
+  platformFeePayeeWallet?: string;
+  creatorFundsStatus?: CreatorContentAccess["creatorFundsStatus"];
 };
 
 const sourceTypes: CreatorContentSource[] = ["manual", "rss"];
@@ -167,7 +177,17 @@ export class CreatorContentService {
       throw new Error("Content is not accepting paid agent access.");
     }
 
-    const revenue = calculateAccessRevenue(input.amount);
+    const revenue =
+      input.grossAmount !== undefined ||
+      input.platformFee !== undefined ||
+      input.creatorNetAmount !== undefined
+        ? {
+            grossAmount: input.grossAmount ?? input.amount,
+            platformFee: input.platformFee ?? 0,
+            creatorNetAmount: input.creatorNetAmount ?? input.amount,
+            platformFeeBps: input.platformFeeBps ?? getPlatformFeeBps(),
+          }
+        : calculateAccessRevenue(input.amount);
     const access: CreatorContentAccess = {
       id: makeId("access", `${input.contentId}:${input.paymentId}`),
       contentId: input.contentId,
@@ -178,6 +198,12 @@ export class CreatorContentService {
       platformFee: revenue.platformFee,
       creatorNetAmount: revenue.creatorNetAmount,
       platformFeeBps: revenue.platformFeeBps,
+      settlementMode: input.settlementMode ?? "creator_gross",
+      creatorSettlementTx: input.creatorSettlementTx,
+      platformFeePaymentId: input.platformFeePaymentId,
+      platformFeeSettlementTx: input.platformFeeSettlementTx,
+      platformFeePayeeWallet: input.platformFeePayeeWallet,
+      creatorFundsStatus: input.creatorFundsStatus ?? "gateway_balance",
       currency: "USDC",
       status: "settled",
       accessedAt: new Date(),

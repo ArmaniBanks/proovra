@@ -38,18 +38,24 @@ platform fee on every paid agent access while creators keep 90% as net earnings.
 
 Current implementation:
 
-- Agent payments still settle through the existing x402 `payTo` flow.
-- ProoVra records gross payment, creator net, platform fee, and receipt metadata.
+- If `PROOVRA_TREASURY_WALLET` is configured, the hosted agent payment flow
+  performs a dual x402 split: the ProoVra platform fee is paid to treasury, then
+  creator net is paid to the creator payout wallet.
+- If treasury is not configured, agent payments settle through the existing
+  single x402 `payTo` flow.
+- ProoVra records gross payment, creator net, platform fee, settlement mode,
+  creator settlement tx, treasury payment id, treasury settlement tx, and
+  receipt metadata.
 - Dashboard, activity, content, discovery, and agent views show the fee split.
 - Treasury wallet/email can be configured privately for reporting and future claim flows.
 
 Important settlement note:
 
-At the moment, ProoVra fees are tracked in the backend revenue ledger, but USDC
-is not automatically moved into a ProoVra treasury account. Real treasury
-settlement will come in an upcoming upgrade, likely through a settlement wallet,
-post-settlement transfer, or provider-supported split flow once the live payout
-path is finalized.
+Circle Gateway x402 settlement credits Gateway balances first. ProoVra can
+automatically split hosted agent payments between creator-net and treasury-fee
+Gateway balances. Moving a creator's Gateway balance into their on-chain Arc
+wallet requires a creator-signed Gateway withdrawal, so ProoVra does not custody
+or sign withdrawals for creators from the backend.
 
 ## Current Product Surface
 
@@ -59,6 +65,7 @@ path is finalized.
 - `/agents` - agent buyer console for discovering and paying for gated content.
 - `/api/agent/discover` - public agent discovery index for paid content metadata.
 - `/api/agent/pay` - real Circle Gateway x402 buyer route for Arc Testnet agent payments.
+- `/api/platform-fee/[id]/settle` - x402-protected ProoVra treasury fee settlement leg.
 - `/api/creator-content` - list/create creator content records.
 - `/api/creator-content/[id]/access` - x402-gated paid content access endpoint.
 

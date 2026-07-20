@@ -40,6 +40,12 @@ export interface CreatorContentAccess {
   platformFee?: number;
   creatorNetAmount?: number;
   platformFeeBps?: number;
+  settlementMode?: "creator_gross" | "dual_x402_split";
+  creatorSettlementTx?: string;
+  platformFeePaymentId?: string;
+  platformFeeSettlementTx?: string;
+  platformFeePayeeWallet?: string;
+  creatorFundsStatus?: "gateway_balance" | "withdrawn_to_wallet";
   currency: "USDC";
   status: "settled";
   accessedAt: Date;

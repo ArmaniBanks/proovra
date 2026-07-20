@@ -1,185 +1,89 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import {
-  BatchFacilitatorClient,
-  GATEWAY_AUTH_VALIDITY_WINDOW_SECONDS,
-} from "@circle-fin/x402-batching/server";
 import { db } from "@/lib/db";
+import {
+  createGatewayPaymentRequirement,
+  decodePaymentSignature,
+  getBaseUrl,
+  getGatewayClient,
+  getGatewayPaymentKind,
+  getPaymentId,
+  hasX402PaymentSignature,
+  isWallet,
+  type GatewayPaymentRequirements,
+  type GatewaySettleResult,
+  type GatewayVerifyResult,
+} from "@/lib/x402-gateway";
 import { CreatorContentService } from "@/services/creator-content.service";
 import { CreatorProfileService } from "@/services/creator-profile.service";
 import { X402PaymentService } from "@/services/x402-payment.service";
 
 export const runtime = "nodejs";
 
-const ARC_TESTNET_CHAIN_ID = 5042002;
-const DEFAULT_USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
-const NETWORK = `eip155:${ARC_TESTNET_CHAIN_ID}` as const;
-
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-type GatewaySupportedKind = {
-  x402Version: number;
-  scheme: string;
-  network: string;
-  extra?: {
-    verifyingContract?: string;
-    assets?: Array<{
-      symbol?: string;
-      address?: string;
-      decimals?: number;
-    }>;
-    [key: string]: unknown;
-  };
-};
-
-type GatewayVerifyResult = {
-  isValid: boolean;
-  invalidReason?: string;
-  payer?: string;
-};
-
-type GatewaySettleResult = {
-  success: boolean;
-  errorReason?: string;
-  payer?: string;
-  transaction: string;
-  network: string;
-};
-
-type GatewayPaymentRequirements = {
-  scheme: string;
-  network: string;
-  maxAmountRequired: string;
-  amount: string;
-  asset: string;
-  payTo: string;
-  maxTimeoutSeconds: number;
-  resource: string;
-  description: string;
-  mimeType: string;
-  extra: Record<string, unknown>;
-};
-
-type X402PaymentPayload = {
-  x402Version: number;
-  accepted?: GatewayPaymentRequirements;
-  payload: Record<string, unknown>;
-  resource?: {
-    url: string;
-    description: string;
-    mimeType: string;
-  };
-  extensions?: Record<string, unknown>;
-};
-
-let gatewayClient: BatchFacilitatorClient | undefined;
-
-function getGatewayClient() {
-  gatewayClient ??= new BatchFacilitatorClient({
-    url:
-      process.env.PROOVRA_X402_GATEWAY_URL ||
-      "https://gateway-api-testnet.circle.com",
-  });
-  return gatewayClient;
+function getSplitSettlementMode(req: Request) {
+  return new URL(req.url).searchParams.get("settlement") === "creator-net";
 }
 
-function getBaseUrl(req: Request) {
-  const url = new URL(req.url);
-  return `${url.protocol}//${url.host}`;
-}
-
-function getUsdcAsset(kind: GatewaySupportedKind) {
-  return kind.extra?.assets?.find((asset) => asset.symbol === "USDC")?.address;
-}
-
-function amountToBaseUnits(amount: number) {
-  return String(Math.max(1, Math.round(amount * 1_000_000)));
-}
-
-function isWallet(value: string): value is `0x${string}` {
-  return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
-}
-
-function getPaymentId(req: Request) {
-  return (
-    req.headers.get("x-payment") ||
-    req.headers.get("payment-id") ||
-    req.headers.get("payment-signature") ||
-    ""
-  ).trim();
-}
-
-function hasX402PaymentSignature(req: Request) {
-  return Boolean(
-    req.headers.get("payment-signature") ||
-      req.headers.get("PAYMENT-SIGNATURE") ||
-      req.headers.get("x-payment") ||
-      req.headers.get("X-PAYMENT")
-  );
-}
-
-function decodePaymentSignature(req: Request): X402PaymentPayload {
-  const header =
-    req.headers.get("payment-signature") ||
-    req.headers.get("PAYMENT-SIGNATURE") ||
-    req.headers.get("x-payment") ||
-    req.headers.get("X-PAYMENT");
-
-  if (!header) {
-    throw new Error("PAYMENT-SIGNATURE header is required.");
+function getPlatformFeeProof(req: Request, contentId: string) {
+  const paymentId = req.headers.get("x-proovra-platform-payment-id")?.trim();
+  if (!paymentId) return null;
+  const payment = X402PaymentService.verifyPayment(paymentId);
+  if (!payment || payment.settlementId !== `platform-fee:${contentId}`) {
+    throw new Error("Valid ProoVra platform-fee payment is required.");
   }
+  return payment;
+}
 
-  return JSON.parse(Buffer.from(header, "base64").toString("utf8"));
+function getReceiptTransaction(receipt?: string) {
+  if (!receipt) return undefined;
+  try {
+    const parsed = JSON.parse(receipt) as { transaction?: unknown };
+    return typeof parsed.transaction === "string" ? parsed.transaction : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function paymentRequirements(req: Request, contentId: string) {
   const content = CreatorContentService.getContentById(contentId);
   if (!content) throw new Error("Content not found.");
 
-  const supported = await getGatewayClient().getSupported();
-  const kind = (supported.kinds as GatewaySupportedKind[]).find(
-    (entry) => entry.network === NETWORK && entry.extra?.verifyingContract
-  );
-  const gatewayAsset = kind ? getUsdcAsset(kind) : undefined;
+  const kind = await getGatewayPaymentKind();
   const resourceUrl = `${getBaseUrl(req)}${new URL(req.url).pathname}`;
-  const amount = amountToBaseUnits(content.price);
   const revenue = CreatorContentService.quoteRevenue(content.price);
   const revenueConfig = CreatorContentService.getRevenueConfig();
   const payTo = content.creatorWallet.trim();
   if (!isWallet(payTo)) {
     throw new Error("Creator payout wallet is missing or invalid.");
   }
+  const splitSettlement = getSplitSettlementMode(req);
+  const amount = splitSettlement ? revenue.creatorNetAmount : content.price;
 
   const accepts: GatewayPaymentRequirements[] = [
-    {
-      scheme: "exact",
-      network: NETWORK,
-      maxAmountRequired: amount,
+    createGatewayPaymentRequirement({
       amount,
-      asset: gatewayAsset || process.env.PROOVRA_X402_ASSET || DEFAULT_USDC_ADDRESS,
       payTo,
-      maxTimeoutSeconds: GATEWAY_AUTH_VALIDITY_WINDOW_SECONDS,
-      resource: resourceUrl,
+      resourceUrl,
       description: `Paid agent access to ${content.title}`,
-      mimeType: "application/json",
+      kind,
       extra: {
-        name: kind?.extra?.verifyingContract ? "GatewayWalletBatched" : "USDC",
-        version: kind?.extra?.verifyingContract ? "1" : "2",
         proovra: {
           grossAmount: revenue.grossAmount,
           platformFee: revenue.platformFee,
           creatorNetAmount: revenue.creatorNetAmount,
           platformFeeBps: revenue.platformFeeBps,
           treasuryConfigured: revenueConfig.treasuryConfigured,
-          settlementMode: revenueConfig.settlementMode,
+          settlementMode: splitSettlement
+            ? "dual_x402_split"
+            : revenueConfig.settlementMode,
+          settlementLeg: splitSettlement ? "creator_net" : "creator_gross",
         },
-        ...(kind?.extra?.verifyingContract
-          ? { verifyingContract: kind.extra.verifyingContract }
-          : {}),
       },
-    },
+    }),
   ];
 
   return {
@@ -275,6 +179,8 @@ export async function GET(req: Request, context: RouteContext) {
   if (hasX402PaymentSignature(req)) {
     try {
       const requirements = await paymentRequirements(req, id);
+      const splitSettlement = getSplitSettlementMode(req);
+      const platformFeeProof = splitSettlement ? getPlatformFeeProof(req, id) : null;
       const paymentPayload = decodePaymentSignature(req);
       const selectedRequirements = requirements.accepts.find(
         (entry) => entry.network === paymentPayload.accepted?.network
@@ -312,6 +218,7 @@ export async function GET(req: Request, context: RouteContext) {
         );
       }
 
+      const revenue = CreatorContentService.quoteRevenue(content.price);
       const amount = Number(selectedRequirements.amount) / 1_000_000;
       const digest = createHash("sha256")
         .update(
@@ -319,6 +226,7 @@ export async function GET(req: Request, context: RouteContext) {
             transaction: settlement.transaction,
             payer: settlement.payer,
             contentId: id,
+            leg: splitSettlement ? "creator_net" : "creator_gross",
           })
         )
         .digest("hex")
@@ -340,7 +248,17 @@ export async function GET(req: Request, context: RouteContext) {
         contentId: id,
         paymentId: record.paymentId,
         agentWallet: record.payerWallet,
-        amount,
+        amount: splitSettlement ? content.price : amount,
+        grossAmount: splitSettlement ? revenue.grossAmount : undefined,
+        platformFee: splitSettlement ? revenue.platformFee : undefined,
+        creatorNetAmount: splitSettlement ? revenue.creatorNetAmount : undefined,
+        platformFeeBps: splitSettlement ? revenue.platformFeeBps : undefined,
+        settlementMode: splitSettlement ? "dual_x402_split" : "creator_gross",
+        creatorSettlementTx: settlement.transaction,
+        platformFeePaymentId: platformFeeProof?.paymentId,
+        platformFeeSettlementTx: getReceiptTransaction(platformFeeProof?.receipt),
+        platformFeePayeeWallet: platformFeeProof?.payeeWallet,
+        creatorFundsStatus: "gateway_balance",
       });
       const revenueConfig = CreatorContentService.getRevenueConfig();
       await db.flush();
@@ -361,7 +279,10 @@ export async function GET(req: Request, context: RouteContext) {
               platformFee: access.platformFee ?? 0,
               platformFeeBps: access.platformFeeBps ?? revenueConfig.platformFeeBps,
               treasuryConfigured: revenueConfig.treasuryConfigured,
-              settlementMode: revenueConfig.settlementMode,
+              settlementMode: access.settlementMode ?? revenueConfig.settlementMode,
+              platformFeePaymentId: access.platformFeePaymentId ?? null,
+              platformFeeSettlementTx: access.platformFeeSettlementTx ?? null,
+              creatorFundsStatus: access.creatorFundsStatus,
             },
           },
         },

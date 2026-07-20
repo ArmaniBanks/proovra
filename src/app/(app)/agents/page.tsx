@@ -70,6 +70,22 @@ type AccessState = {
     approvalTxHash?: string;
     depositTxHash?: string;
   } | null;
+  splitSettlement?: {
+    grossAmount: number;
+    creatorNetAmount: number;
+    platformFee: number;
+    creatorPayment: {
+      transaction: string;
+      payTo: string;
+      fundsStatus: string;
+    };
+    treasuryPayment: {
+      paymentId: string;
+      amount: number;
+      transaction: string;
+      payTo: string;
+    };
+  } | null;
 };
 
 export default function AgentsPage() {
@@ -172,6 +188,7 @@ export default function AgentsPage() {
         transaction: payload.agentPayment?.transaction,
         payTo: payload.agentPayment?.payTo,
         gatewayDeposit: payload.agentPayment?.gatewayDeposit ?? null,
+        splitSettlement: payload.agentPayment?.splitSettlement ?? null,
       });
       void loadResources();
     } catch (error) {
@@ -390,6 +407,21 @@ function ResourceCard({
                   )}
                   <p className="break-all font-mono">
                     deposit: {state.gatewayDeposit.depositTxHash}
+                  </p>
+                </div>
+              )}
+              {state.splitSettlement && (
+                <div className="mt-2 space-y-1 rounded-md border border-amber-500/20 bg-amber-500/5 p-2 text-xs text-zinc-400">
+                  <p>
+                    Split settlement: creator net{" "}
+                    {formatUSDC(state.splitSettlement.creatorNetAmount)} + treasury fee{" "}
+                    {formatUSDC(state.splitSettlement.platformFee)}
+                  </p>
+                  <p className="break-all font-mono">
+                    creator tx: {state.splitSettlement.creatorPayment.transaction}
+                  </p>
+                  <p className="break-all font-mono">
+                    treasury tx: {state.splitSettlement.treasuryPayment.transaction}
                   </p>
                 </div>
               )}
