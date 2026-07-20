@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  AlertTriangle,
   Bot,
   CheckCircle2,
   CircleDollarSign,
@@ -19,13 +20,21 @@ import {
 } from "lucide-react";
 import { usePrivy, useSendTransaction, useWallets } from "@privy-io/react-auth";
 import { useApi } from "@/hooks/useApi";
+import {
+  ARC_GATEWAY_CHAIN,
+  encodeGatewayMintCall,
+  MIN_GATEWAY_WITHDRAWAL_AMOUNT,
+  type GatewayBurnIntent,
+  type GatewayWithdrawalTypedData,
+} from "@/lib/gateway-withdrawal";
+import type { Hex } from "viem";
 import type { CreatorContent, CreatorContentAccess } from "@/lib/mock-data";
 import { arcTestnetChain, hasPrivyConfig } from "@/lib/privy-config";
 import { formatUSDC } from "@/lib/utils";
 import { ProoVraMark } from "@/components/brand/proovra-mark";
 
-const ARC_USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 const EMPTY_CREATOR_WALLET = "0x0000000000000000000000000000000000000000";
+const ARC_USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 
 type CreatorContentResponse = {
   contents: CreatorContent[];
@@ -61,6 +70,33 @@ type CreatorWalletBalanceResponse = {
     formattedWithdrawable: string;
   };
   error?: string;
+};
+
+type GatewayWithdrawalPrepareResponse = {
+  burnIntent: GatewayBurnIntent;
+  typedData: GatewayWithdrawalTypedData;
+  error?: string;
+};
+
+type GatewayWithdrawalSubmitResponse = {
+  attestation: `0x${string}`;
+  signature: `0x${string}`;
+  gateway?: Record<string, unknown>;
+  error?: string;
+};
+
+type EthereumProvider = {
+  request: (input: { method: string; params?: unknown[] }) => Promise<unknown>;
+};
+
+type PendingGatewayWithdrawal = {
+  creatorWallet: string;
+  recipient: string;
+  amount: string;
+  attestation: `0x${string}`;
+  signature: `0x${string}`;
+  createdAt: string;
+  gateway?: Record<string, unknown>;
 };
 
 export default function DashboardPage() {
@@ -162,6 +198,12 @@ function CreatorDashboard({
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawStatus, setWithdrawStatus] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
+  const [pendingWithdrawal, setPendingWithdrawal] =
+    useState<PendingGatewayWithdrawal | null>(null);
+  const [walletSendTo, setWalletSendTo] = useState("");
+  const [walletSendAmount, setWalletSendAmount] = useState("");
+  const [walletSendStatus, setWalletSendStatus] = useState("");
+  const [walletSending, setWalletSending] = useState(false);
   const [profileDisplayName, setProfileDisplayName] = useState("");
   const [profileUsername, setProfileUsername] = useState("");
   const [profileStatus, setProfileStatus] = useState("");
@@ -174,10 +216,38 @@ function CreatorDashboard({
   const contents = data?.contents ?? [];
   const latestContent = contents[0];
 
-  const canWithdraw = useMemo(
-    () => isAddress(withdrawTo) && Number(withdrawAmount) > 0 && Boolean(walletAddress),
-    [walletAddress, withdrawAmount, withdrawTo]
-  );
+  const withdrawValidation = useMemo(() => {
+    if (!walletAddress) return "Creator wallet is still loading.";
+    if (!isAddress(withdrawTo)) return "Enter a valid destination wallet address.";
+    if (!withdrawAmount || Number(withdrawAmount) <= 0) {
+      return "Enter the USDC amount to withdraw.";
+    }
+    if (Number(withdrawAmount) < Number(MIN_GATEWAY_WITHDRAWAL_AMOUNT)) {
+      return `Minimum Gateway withdrawal is ${MIN_GATEWAY_WITHDRAWAL_AMOUNT} USDC.`;
+    }
+    if (pendingWithdrawal) return "Finish the pending Gateway mint before starting another withdrawal.";
+    return "";
+  }, [pendingWithdrawal, walletAddress, withdrawAmount, withdrawTo]);
+  const canWithdraw = !withdrawValidation;
+  const walletSendValidation = useMemo(() => {
+    if (!walletAddress) return "Creator wallet is still loading.";
+    if (!isAddress(walletSendTo)) return "Enter a valid destination wallet address.";
+    if (walletSendTo.toLowerCase() === EMPTY_CREATOR_WALLET) {
+      return "Destination wallet cannot be the zero address.";
+    }
+    if (!walletSendAmount || Number(walletSendAmount) <= 0) {
+      return "Enter the USDC amount to send.";
+    }
+    try {
+      if (parseTokenUnits(walletSendAmount, 6) > parseTokenUnits(balance.value, 6)) {
+        return `Wallet balance is ${balance.value} USDC. Enter a smaller amount.`;
+      }
+    } catch (error) {
+      return error instanceof Error ? error.message : "Enter a valid USDC amount.";
+    }
+    return "";
+  }, [balance.value, walletAddress, walletSendAmount, walletSendTo]);
+  const canSendFromWallet = !walletSendValidation;
 
   useEffect(() => {
     if (!walletAddress) return;
@@ -237,6 +307,22 @@ function CreatorDashboard({
     };
   }, [walletAddress]);
 
+  useEffect(() => {
+    if (!walletAddress) return;
+    const frame = window.requestAnimationFrame(() => {
+      setPendingWithdrawal(loadPendingGatewayWithdrawal(walletAddress));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [walletAddress]);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+    const frame = window.requestAnimationFrame(() => {
+      setWithdrawTo((current) => current || walletAddress);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [walletAddress]);
+
   async function copyWallet() {
     if (!walletAddress) return;
     await navigator.clipboard.writeText(walletAddress);
@@ -245,22 +331,61 @@ function CreatorDashboard({
   }
 
   async function withdrawFunds() {
-    if (!canWithdraw || !walletAddress) return;
+    if (!canWithdraw || !walletAddress) {
+      setWithdrawStatus(withdrawValidation || "Withdrawal form is not ready.");
+      return;
+    }
 
     setWithdrawing(true);
     setWithdrawStatus("");
     try {
-      const data = encodeUsdcTransfer(withdrawTo, withdrawAmount);
-      const result = await sendTransaction(
-        {
-          to: ARC_USDC_ADDRESS,
-          data,
-          value: "0x0",
-          chainId: arcTestnetChain.id,
-        },
-        { address: walletAddress }
-      );
-      setWithdrawStatus(`Withdrawal submitted: ${result.hash}`);
+      if (Number(withdrawAmount) < Number(MIN_GATEWAY_WITHDRAWAL_AMOUNT)) {
+        throw new Error(
+          `Minimum Gateway withdrawal is ${MIN_GATEWAY_WITHDRAWAL_AMOUNT} USDC to avoid outsized network/Gateway fees on tiny withdrawals.`
+        );
+      }
+      if (!embeddedWallet) throw new Error("Creator wallet is not ready.");
+      setWithdrawStatus("Preparing Gateway withdrawal...");
+      const prepare = await prepareGatewayWithdrawal({
+        creatorWallet: walletAddress,
+        recipient: withdrawTo,
+        amount: withdrawAmount,
+      });
+      const provider = await getEthereumProvider(embeddedWallet);
+      setWithdrawStatus("Waiting for creator wallet signature...");
+      const signature = await provider.request({
+        method: "eth_signTypedData_v4",
+        params: [walletAddress, JSON.stringify(prepare.typedData)],
+      });
+      if (typeof signature !== "string") {
+        throw new Error("Creator wallet did not return a valid signature.");
+      }
+
+      setWithdrawStatus("Submitting signed withdrawal to Circle Gateway...");
+      const attestation = await submitGatewayWithdrawal({
+        creatorWallet: walletAddress,
+        burnIntent: prepare.burnIntent,
+        signature,
+      });
+      const pending: PendingGatewayWithdrawal = {
+        creatorWallet: walletAddress,
+        recipient: withdrawTo,
+        amount: withdrawAmount,
+        attestation: attestation.attestation,
+        signature: attestation.signature,
+        createdAt: new Date().toISOString(),
+        gateway: attestation.gateway,
+      };
+      savePendingGatewayWithdrawal(pending);
+      setPendingWithdrawal(pending);
+
+      setWithdrawStatus("Minting withdrawn USDC to the destination wallet...");
+      const result = await mintPendingGatewayWithdrawal(pending);
+      setWithdrawStatus(`Waiting for Arc confirmation: ${result.hash}`);
+      await waitForSuccessfulTransaction(result.hash, "Arc mint transaction");
+      setWithdrawStatus(`Gateway withdrawal minted: ${result.hash}`);
+      clearPendingGatewayWithdrawal(walletAddress);
+      setPendingWithdrawal(null);
       setWithdrawAmount("");
       setWithdrawTo("");
       setBalance((current) => ({ ...current, loading: true }));
@@ -272,6 +397,43 @@ function CreatorDashboard({
       );
     } finally {
       setWithdrawing(false);
+    }
+  }
+
+  async function sendFromWallet() {
+    if (!canSendFromWallet || !walletAddress) {
+      setWalletSendStatus(walletSendValidation || "Wallet transfer form is not ready.");
+      return;
+    }
+
+    setWalletSending(true);
+    setWalletSendStatus("");
+    try {
+      const data = encodeUsdcTransfer(walletSendTo, walletSendAmount);
+      setWalletSendStatus("Submitting wallet USDC transfer...");
+      const result = await sendTransaction(
+        {
+          to: ARC_USDC_ADDRESS,
+          data,
+          value: "0x0",
+          chainId: arcTestnetChain.id,
+        },
+        { address: walletAddress }
+      );
+      setWalletSendStatus(`Waiting for Arc confirmation: ${result.hash}`);
+      await waitForSuccessfulTransaction(result.hash, "Wallet USDC transfer");
+      setWalletSendStatus(`Wallet USDC sent: ${result.hash}`);
+      setWalletSendAmount("");
+      setWalletSendTo("");
+      setBalance((current) => ({ ...current, loading: true }));
+      const refreshed = await fetchCreatorWalletBalances(walletAddress);
+      setBalance({ loading: false, ...refreshed, error: "" });
+    } catch (error) {
+      setWalletSendStatus(
+        error instanceof Error ? error.message : "Wallet USDC transfer failed"
+      );
+    } finally {
+      setWalletSending(false);
     }
   }
 
@@ -306,6 +468,72 @@ function CreatorDashboard({
       setProfileStatus(error instanceof Error ? error.message : "Profile update failed.");
     } finally {
       setProfileSaving(false);
+    }
+  }
+
+  async function retryPendingMint() {
+    if (!pendingWithdrawal || !walletAddress) return;
+    setWithdrawing(true);
+    setWithdrawStatus("Retrying Gateway mint transaction...");
+    try {
+      const result = await mintPendingGatewayWithdrawal(pendingWithdrawal);
+      setWithdrawStatus(`Waiting for Arc confirmation: ${result.hash}`);
+      await waitForSuccessfulTransaction(result.hash, "Arc mint transaction");
+      setWithdrawStatus(`Gateway withdrawal minted: ${result.hash}`);
+      clearPendingGatewayWithdrawal(walletAddress);
+      setPendingWithdrawal(null);
+      setBalance((current) => ({ ...current, loading: true }));
+      const refreshed = await fetchCreatorWalletBalances(walletAddress);
+      setBalance({ loading: false, ...refreshed, error: "" });
+    } catch (error) {
+      setWithdrawStatus(
+        error instanceof Error ? error.message : "Retry mint failed"
+      );
+    } finally {
+      setWithdrawing(false);
+    }
+  }
+
+  async function mintPendingGatewayWithdrawal(pending: PendingGatewayWithdrawal) {
+    const data = encodeGatewayMintCall({
+      attestation: pending.attestation,
+      signature: pending.signature,
+    });
+    return sendTransaction(
+      {
+        to: ARC_GATEWAY_CHAIN.gatewayMinter,
+        data,
+        value: "0x0",
+        chainId: arcTestnetChain.id,
+      },
+      { address: walletAddress }
+    );
+  }
+
+  async function waitForSuccessfulTransaction(hash: Hex, label: string) {
+    const response = await fetch(
+      `/api/arc-transaction?hash=${encodeURIComponent(hash)}`,
+      { cache: "no-store" }
+    );
+    const receipt = (await response.json()) as {
+      status?: "success" | "reverted";
+      error?: string;
+    };
+    if (!response.ok) {
+      throw new Error(
+        `${label} could not be confirmed yet: ${
+          receipt.error ?? "Arc confirmation failed."
+        }`
+      );
+    }
+    if (receipt.status !== "success") {
+      throw new Error(
+        `${label} reverted: ${hash}. ${
+          label.includes("mint")
+            ? "The Gateway attestation was kept so you can retry minting instead of creating a new withdrawal."
+            : "No USDC was transferred, but gas may still be spent by the network."
+        }`
+      );
     }
   }
 
@@ -445,15 +673,61 @@ function CreatorDashboard({
           </div>
           <h2 className="text-sm font-semibold text-zinc-100">Withdraw Funds</h2>
           <p className="mt-1 text-xs leading-5 text-zinc-500">
-            Send USDC from your creator wallet to another address on Arc Testnet.
+            Move available Circle Gateway USDC into an Arc Testnet wallet.
           </p>
+          <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+            <div className="flex gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <p className="text-xs leading-5 text-amber-100/80">
+                Gateway withdrawals can include a fixed fee, so tiny withdrawals
+                may receive much less than expected. ProoVra blocks withdrawals
+                below {MIN_GATEWAY_WITHDRAWAL_AMOUNT} USDC and saves the mint
+                attestation before sending the final Arc transaction.
+              </p>
+            </div>
+          </div>
           <div className="mt-4 space-y-3">
+            {pendingWithdrawal && (
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
+                <p className="text-xs font-semibold text-emerald-200">
+                  Pending Gateway mint
+                </p>
+                <p className="mt-1 break-all text-xs leading-5 text-emerald-100/70">
+                  {pendingWithdrawal.amount} USDC was attested for{" "}
+                  {pendingWithdrawal.recipient}. If the wallet transaction
+                  failed, retry the mint instead of creating a new withdrawal.
+                </p>
+                <button
+                  type="button"
+                  onClick={retryPendingMint}
+                  disabled={withdrawing}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200 transition-colors hover:border-emerald-300/50 hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+                >
+                  <Send className="h-4 w-4" />
+                  {withdrawing ? "Retrying" : "Retry Mint"}
+                </button>
+                <p className="mt-2 text-[11px] leading-4 text-emerald-100/60">
+                  New withdrawals stay locked until this mint confirms or you
+                  retry it. This protects the already-attested Gateway transfer.
+                </p>
+              </div>
+            )}
             <input
               value={withdrawTo}
               onChange={(event) => setWithdrawTo(event.target.value)}
               placeholder="Destination wallet address"
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-amber-500/50"
             />
+            <button
+              type="button"
+              onClick={() => {
+                if (walletAddress) setWithdrawTo(walletAddress);
+              }}
+              disabled={!walletAddress}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/60 px-4 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-amber-500/40 hover:text-amber-300 disabled:cursor-not-allowed disabled:text-zinc-600"
+            >
+              Use my creator wallet
+            </button>
             <input
               value={withdrawAmount}
               onChange={(event) => setWithdrawAmount(event.target.value)}
@@ -471,11 +745,110 @@ function CreatorDashboard({
               {withdrawing ? "Withdrawing" : "Withdraw USDC"}
             </button>
             {withdrawStatus && (
-              <p className="break-all text-xs leading-5 text-zinc-400">{withdrawStatus}</p>
+              <p
+                className={`break-all text-xs leading-5 ${
+                  withdrawStatus.toLowerCase().includes("failed") ||
+                  withdrawStatus.toLowerCase().includes("error") ||
+                  withdrawStatus.toLowerCase().includes("valid") ||
+                  withdrawStatus.toLowerCase().includes("minimum") ||
+                  withdrawStatus.toLowerCase().includes("insufficient")
+                    ? "text-red-300"
+                    : "text-zinc-400"
+                }`}
+              >
+                {withdrawStatus}
+              </p>
+            )}
+            {!canWithdraw && !withdrawStatus && (
+              <p className="text-xs leading-5 text-zinc-500">{withdrawValidation}</p>
             )}
           </div>
         </section>
       </div>
+
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="mb-2 inline-flex rounded-lg bg-emerald-500/10 p-2">
+              <CircleDollarSign className="h-4 w-4 text-emerald-300" />
+            </div>
+            <h2 className="text-sm font-semibold text-zinc-100">
+              Withdraw From Privy Wallet
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-zinc-500">
+              Send USDC already minted into your Privy creator wallet to any Arc
+              Testnet wallet address. This is a normal USDC wallet transfer, not
+              a Gateway withdrawal.
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-right">
+            <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+              Wallet USDC
+            </p>
+            <p className="mt-1 font-mono text-lg font-semibold text-zinc-100">
+              {balance.loading ? "..." : balance.value}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_0.45fr_auto]">
+          <input
+            value={walletSendTo}
+            onChange={(event) => setWalletSendTo(event.target.value)}
+            placeholder="Destination wallet address"
+            className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500/50"
+          />
+          <input
+            value={walletSendAmount}
+            onChange={(event) => setWalletSendAmount(event.target.value)}
+            inputMode="decimal"
+            placeholder="Amount USDC"
+            className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-500/50"
+          />
+          <button
+            type="button"
+            onClick={sendFromWallet}
+            disabled={!canSendFromWallet || walletSending}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-300 transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+          >
+            <Send className="h-4 w-4" />
+            {walletSending ? "Sending" : "Send USDC"}
+          </button>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs leading-5 text-zinc-500">
+            Available to send: {balance.loading ? "..." : balance.value} USDC
+            on Arc Testnet.
+          </p>
+          <button
+            type="button"
+            onClick={() => setWalletSendAmount(balance.value)}
+            disabled={balance.loading || Number(balance.value) <= 0}
+            className="inline-flex items-center justify-center rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-500/40 hover:text-emerald-300 disabled:cursor-not-allowed disabled:text-zinc-600"
+          >
+            Max
+          </button>
+        </div>
+        {walletSendStatus ? (
+          <p
+            className={`mt-3 break-all text-xs leading-5 ${
+              walletSendStatus.toLowerCase().includes("failed") ||
+              walletSendStatus.toLowerCase().includes("error") ||
+              walletSendStatus.toLowerCase().includes("valid") ||
+              walletSendStatus.toLowerCase().includes("reverted")
+                ? "text-red-300"
+                : "text-zinc-400"
+            }`}
+          >
+            {walletSendStatus}
+          </p>
+        ) : (
+          !canSendFromWallet && (
+            <p className="mt-3 text-xs leading-5 text-zinc-500">
+              {walletSendValidation}
+            </p>
+          )
+        )}
+      </section>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -781,6 +1154,79 @@ async function fetchCreatorWalletBalances(address: string) {
   };
 }
 
+async function prepareGatewayWithdrawal(input: {
+  creatorWallet: string;
+  recipient: string;
+  amount: string;
+}) {
+  const response = await fetch("/api/creator-wallet/withdraw/prepare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json()) as GatewayWithdrawalPrepareResponse;
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Gateway withdrawal preparation failed.");
+  }
+  return payload;
+}
+
+async function submitGatewayWithdrawal(input: {
+  creatorWallet: string;
+  burnIntent: GatewayBurnIntent;
+  signature: string;
+}) {
+  const response = await fetch("/api/creator-wallet/withdraw/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const payload = (await response.json()) as GatewayWithdrawalSubmitResponse;
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Gateway withdrawal submission failed.");
+  }
+  return payload;
+}
+
+async function getEthereumProvider(wallet: unknown): Promise<EthereumProvider> {
+  const candidate = wallet as {
+    getEthereumProvider?: () => Promise<EthereumProvider>;
+  };
+  if (typeof candidate.getEthereumProvider !== "function") {
+    throw new Error("Creator wallet cannot sign Gateway withdrawal intents.");
+  }
+  return candidate.getEthereumProvider();
+}
+
+function pendingGatewayWithdrawalKey(wallet: string) {
+  return `proovra:pending-gateway-withdrawal:${wallet.toLowerCase()}`;
+}
+
+function savePendingGatewayWithdrawal(pending: PendingGatewayWithdrawal) {
+  window.localStorage.setItem(
+    pendingGatewayWithdrawalKey(pending.creatorWallet),
+    JSON.stringify(pending)
+  );
+}
+
+function loadPendingGatewayWithdrawal(wallet: string) {
+  try {
+    const raw = window.localStorage.getItem(pendingGatewayWithdrawalKey(wallet));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingGatewayWithdrawal;
+    if (parsed.creatorWallet.toLowerCase() !== wallet.toLowerCase()) return null;
+    if (!isAddress(parsed.recipient)) return null;
+    if (!parsed.attestation || !parsed.signature) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingGatewayWithdrawal(wallet: string) {
+  window.localStorage.removeItem(pendingGatewayWithdrawalKey(wallet));
+}
+
 function encodeUsdcTransfer(to: string, amount: string): `0x${string}` {
   const units = parseTokenUnits(amount, 6);
   const recipient = to.toLowerCase().replace(/^0x/, "").padStart(64, "0");
@@ -790,8 +1236,18 @@ function encodeUsdcTransfer(to: string, amount: string): `0x${string}` {
 
 function parseTokenUnits(value: string, decimals: number) {
   const [whole = "0", fraction = ""] = value.trim().split(".");
-  const normalizedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
-  return BigInt(whole || "0") * BigInt(10) ** BigInt(decimals) + BigInt(normalizedFraction || "0");
+  if (!/^\d+$/.test(whole) || !/^\d*$/.test(fraction)) {
+    throw new Error("Amount must be a valid USDC value.");
+  }
+  if (fraction.length > decimals) {
+    throw new Error(`Amount can only include up to ${decimals} decimals.`);
+  }
+  const normalizedFraction = fraction.padEnd(decimals, "0");
+  const parsed =
+    BigInt(whole || "0") * BigInt(10) ** BigInt(decimals) +
+    BigInt(normalizedFraction || "0");
+  if (parsed <= BigInt(0)) throw new Error("Amount must be greater than zero.");
+  return parsed;
 }
 
 function isAddress(value: string) {
